@@ -43,6 +43,7 @@ class UserProvider extends BaseProvider {
   TextEditingController districtController = TextEditingController();
   TextEditingController talukaController = TextEditingController();
   TextEditingController dobController = TextEditingController();
+  TextEditingController ageController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmPasswordController = TextEditingController();
   TextEditingController officeBuildingController = TextEditingController();
@@ -75,6 +76,7 @@ class UserProvider extends BaseProvider {
     mobileController.text = currentUser.mobileNumber ?? "";
     emailController.text = currentUser.emailId ?? "";
     dobController.text = currentUser.dob ?? "";
+    ageController.text = currentUser.age ?? "";
     profileController.text = currentUser.profilePhoto ?? "";
     notifyListeners();
   }
@@ -109,6 +111,7 @@ class UserProvider extends BaseProvider {
     mobileController.text = cachedUser.mobileNumber ?? "";
     emailController.text = cachedUser.emailId ?? "";
     dobController.text = cachedUser.dob ?? "";
+    ageController.text = cachedUser.age ?? "";
     profileController.text = cachedUser.profilePhoto ?? "";
     notifyListeners();
   }
@@ -209,18 +212,22 @@ class UserProvider extends BaseProvider {
   // Update user data
   Future<Map<String, Object>> updateUser() async {
     User? user = await LocalSharePreferences.localSharePreferences.getUser();
-    if (user?.id == null) {
+    if (user == null || user.id == null) {
       return {'success': false, 'message': 'User not found'};
     }
-    String apiUrl = ApiConstant.editUserById(user!.id);
+    final userId = user.id!;
+    String apiUrl = ApiConstant.editUserById(userId);
     //log("API=====$apiUrl");
     ApiHelper apiHelper = ApiHelper();
     Map<String, dynamic> data = {
-      "id": user!.id,
+      "id": userId,
       "emailId": emailController.text.trim(),
       "firstName": firstNameController.text.trim(),
       "lastName": lastNameController.text.trim(),
       "dob": dobController.text.trim(),
+      "age": ageController.text.trim().isNotEmpty
+          ? ageController.text.trim()
+          : (user.age ?? ""),
       //  "mobileNumber": mobileController.text.trim(),
       "profilePhoto": profileController.text,
       //"refferedBy": refferedByController.text,
@@ -245,6 +252,7 @@ class UserProvider extends BaseProvider {
             emailController.text = userObject.emailId ?? "";
             mobileController.text = userObject.mobileNumber ?? "";
             dobController.text = userObject.dob ?? "";
+            ageController.text = userObject.age ?? "";
             profileController.text = userObject.profilePhoto ?? "";
 
             LocalSharePreferences localSharePreferences =
@@ -294,14 +302,15 @@ class UserProvider extends BaseProvider {
   // Update user basic details data
   Future<Map<String, Object>> updateUserDetails() async {
     User? user = await LocalSharePreferences.localSharePreferences.getUser();
-    if (user?.id == null) {
+    if (user == null || user.id == null) {
       return {'success': false, 'message': 'User not found'};
     }
-    String apiUrl = ApiConstant.editUserById(user!.id);
+    final userId = user.id!;
+    String apiUrl = ApiConstant.editUserById(userId);
     //log("API=====$apiUrl");
     ApiHelper apiHelper = ApiHelper();
     Map<String, dynamic> data = {
-      "id": user!.id,
+      "id": userId,
       "emailId": emailController.text.trim().isNotEmpty
           ? emailController.text.trim()
           : (user.emailId ?? ""),
@@ -314,6 +323,9 @@ class UserProvider extends BaseProvider {
       "dob": dobController.text.trim().isNotEmpty
           ? dobController.text.trim()
           : (user.dob ?? ""),
+      "age": ageController.text.trim().isNotEmpty
+          ? ageController.text.trim()
+          : (user.age ?? ""),
       // "mobileNumber": mobileController.text.trim(),
       "profilePhoto": profileController.text.trim().isNotEmpty
           ? profileController.text.trim()
@@ -337,6 +349,13 @@ class UserProvider extends BaseProvider {
         if (updateUserResponse.success == true) {
           if (updateUserResponse.data != null) {
             userObject = updateUserResponse.data!.user!;
+            firstNameController.text = userObject.firstName ?? "";
+            lastNameController.text = userObject.lastName ?? "";
+            emailController.text = userObject.emailId ?? "";
+            mobileController.text = userObject.mobileNumber ?? "";
+            dobController.text = userObject.dob ?? "";
+            ageController.text = userObject.age ?? "";
+            profileController.text = userObject.profilePhoto ?? "";
 
             LocalSharePreferences localSharePreferences =
                 LocalSharePreferences();
@@ -385,14 +404,15 @@ class UserProvider extends BaseProvider {
   // Update user Location data
   Future<Map<String, Object>> updateUserLocation() async {
     User? user = await LocalSharePreferences.localSharePreferences.getUser();
-    if (user?.id == null) {
+    if (user == null || user.id == null) {
       return {'success': false, 'message': 'User not found'};
     }
-    String apiUrl = ApiConstant.editUserById(user!.id);
+    final userId = user.id!;
+    String apiUrl = ApiConstant.editUserById(userId);
     log("API=====$apiUrl");
     ApiHelper apiHelper = ApiHelper();
     Map<String, dynamic> data = {
-      "id": user!.id,
+      "id": userId,
       "emailId": user.emailId,
       //  "mobileNumber": user.mobileNumber,
       "country": countryController.text.trim(),
@@ -1366,6 +1386,65 @@ class UserProvider extends BaseProvider {
     notifyListeners();
   }
 
+  Future<List<String>> resolveStateForCity({
+    required String country,
+    required String city,
+  }) async {
+    final cleanCountry = country.trim();
+    final cleanCity = city.trim();
+    if (cleanCountry.isEmpty || cleanCity.isEmpty) return [];
+
+    try {
+      final uri = Uri.https(
+        'maps.googleapis.com',
+        '/maps/api/geocode/json',
+        {
+          'address': '$cleanCity, $cleanCountry',
+          'key': AppConstant.GOOGLE_KEY,
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final results = body['results'] as List? ?? [];
+        final Set<String> states = {};
+
+        for (final item in results) {
+          final data = item as Map<String, dynamic>;
+          final components = data['address_components'] as List? ?? [];
+          for (final comp in components) {
+            final c = comp as Map<String, dynamic>;
+            final types = (c['types'] as List? ?? []).map((e) => '$e');
+            if (types.contains('administrative_area_level_1')) {
+              final stateName = c['long_name']?.toString().trim() ?? '';
+              if (stateName.isNotEmpty) {
+                states.add(stateName);
+              }
+            }
+          }
+        }
+
+        if (states.isNotEmpty) {
+          final sortedStates = states.toList()..sort();
+          if (sortedStates.length == 1) {
+            stateController.text = sortedStates.first;
+          }
+          return sortedStates;
+        }
+      }
+    } catch (e) {
+      log('Geocode state resolve error: $e');
+    }
+
+    try {
+      final availableStates =
+          await _countryService.fetchStatesByCountry(cleanCountry);
+      return availableStates;
+    } catch (_) {
+      return [];
+    }
+  }
+
   void disposeData() {
     firstNameController.clear();
     lastNameController.clear();
@@ -1382,6 +1461,7 @@ class UserProvider extends BaseProvider {
     confirmPasswordController.clear();
     districtController.clear();
     dobController.clear();
+    ageController.clear();
     emailController.clear();
     mobileController.clear(); // double-check spelling here
     officeBuildingController.clear();

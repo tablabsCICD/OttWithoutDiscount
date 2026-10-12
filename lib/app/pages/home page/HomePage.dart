@@ -39,6 +39,7 @@ import 'package:ott/app/widgets/movieCard.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/services/referral_service.dart';
+import '../../core/services/staged_registration_service.dart';
 import '../../core/utils/sharepreferences.dart';
 import '../../provider/onboarding_tour_provider.dart';
 import '../../provider/userProvider.dart';
@@ -272,35 +273,31 @@ class _HomePageState extends State<HomePage>
 
   void confirmDetails(BuildContext context) {
     final userProvider =
-        Provider.of<UserProvider>(context, listen: false).userObject;
+        Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.userObject;
 
-    // Stage 1: Email ID & Date of Birth
-    final hasEmail =
-        userProvider.emailId != null && userProvider.emailId!.trim().isNotEmpty;
-    final hasDob =
-        userProvider.dob != null && userProvider.dob!.trim().isNotEmpty;
-    if (!hasEmail || !hasDob) {
-      stage1ProfilePopUp(context);
+    final stagedService = StagedRegistrationService.instance;
+    final nextStep = stagedService.getNextIncompleteStep(user);
+
+    if (!stagedService.shouldShowStepInCurrentLaunch(
+      step: nextStep,
+      user: user,
+    )) {
       return;
     }
 
-    // Stage 2: Personal Profile (Single Name field)
-    final hasFirstName = userProvider.firstName != null &&
-        userProvider.firstName!.trim().isNotEmpty;
-    if (!hasFirstName) {
-      stage2ProfilePopUp(context);
-      return;
-    }
-
-    // Stage 3: Address / Location (Country, State, District)
-    final loc = userProvider.location;
-    final hasCountry = loc?.country != null && loc!.country!.trim().isNotEmpty;
-    final hasState = loc?.state != null && loc!.state!.trim().isNotEmpty;
-    final hasDistrict =
-        loc?.district != null && loc!.district!.trim().isNotEmpty;
-    if (!hasCountry || !hasState || !hasDistrict) {
-      userLocationPopUp(context);
-      return;
+    switch (nextStep) {
+      case StagedRegistrationStep.emailAndAge:
+        stage1ProfilePopUp(context);
+        break;
+      case StagedRegistrationStep.name:
+        stage2ProfilePopUp(context);
+        break;
+      case StagedRegistrationStep.location:
+        userLocationPopUp(context);
+        break;
+      case StagedRegistrationStep.none:
+        break;
     }
   }
 
@@ -2032,7 +2029,7 @@ class _HomePageState extends State<HomePage>
     confirmDetails(context);
   }
 
-  // STAGE 1: First Login / Minimum Information Popup (Email, DOB, Referral Code)
+  // STAGE 1: First Login / Minimum Information Popup (Email, Age based on Birth Year, Optional Referral Code)
   Future<void> stage1ProfilePopUp(BuildContext context) async {
     final formKey = GlobalKey<FormState>();
     final lang = AppLocalizations.of(context)!;
@@ -2042,182 +2039,278 @@ class _HomePageState extends State<HomePage>
       userProvider.emailController.text =
           userProvider.userObject.emailId ?? "";
     }
-    if (userProvider.dobController.text.trim().isEmpty) {
-      userProvider.dobController.text = userProvider.userObject.dob ?? "";
+    // Set age from userObject.age if present, or infer from dob if existing user has dob
+    if (userProvider.ageController.text.trim().isEmpty) {
+      final existingAge = userProvider.userObject.age?.trim();
+      if (existingAge != null && existingAge.isNotEmpty) {
+        userProvider.ageController.text = existingAge;
+      } else {
+        final existingDob = userProvider.userObject.dob?.trim();
+        if (existingDob != null && existingDob.isNotEmpty) {
+          final parsed = DateTime.tryParse(existingDob);
+          if (parsed != null) {
+            final calculated = DateTime.now().year - parsed.year;
+            userProvider.ageController.text = '$calculated';
+          }
+        }
+      }
     }
     if (userProvider.refferedByController.text.trim().isEmpty) {
-      final pendingReferral =
-          await ReferralService.instance.getPendingReferralCode();
-      if (pendingReferral != null && pendingReferral.isNotEmpty) {
-        userProvider.refferedByController.text = pendingReferral;
+      final userRefferedBy = userProvider.userObject.refferedBy?.trim();
+      if (userRefferedBy != null && userRefferedBy.isNotEmpty) {
+        userProvider.refferedByController.text = userRefferedBy;
+      } else {
+        final pendingReferral =
+            await ReferralService.instance.getPendingReferralCode();
+        if (pendingReferral != null && pendingReferral.isNotEmpty) {
+          userProvider.refferedByController.text = pendingReferral;
+        }
       }
     }
 
     if (!context.mounted) return;
 
+    final currentYear = DateTime.now().year;
+    // Supported ages 12 to 100
+    final List<int> birthYears =
+        List.generate(89, (index) => (currentYear - 12) - index);
+
+    // Initial selected year from ageController if numeric
+    int? selectedBirthYear;
+    final currentAgeVal = int.tryParse(userProvider.ageController.text.trim());
+    if (currentAgeVal != null && currentAgeVal >= 12 && currentAgeVal <= 100) {
+      selectedBirthYear = currentYear - currentAgeVal;
+    }
+
+    StagedRegistrationService.instance.setDialogActive(true);
+    bool isSubmitting = false;
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        UserProvider provider =
-            Provider.of<UserProvider>(context, listen: true);
-        var selectedThemeData =
-            Provider.of<ThemeProvider>(context, listen: true).getTheme;
-        return AlertDialog(
-          backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-          title: Text(
-            lang.enterDetails,
-            style: TextStyle(
-              color: selectedThemeData.canvasColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextField(
-                    controller: provider.emailController,
-                    isEmail: true,
-                    isValidator: true,
-                    label: lang.email,
-                    hintText: lang.enterEmail,
-                    textInputType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      lang.birthDate,
-                      style: TextStyle(
-                        color: selectedThemeData.canvasColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final provider = Provider.of<UserProvider>(context, listen: true);
+            final selectedThemeData =
+                Provider.of<ThemeProvider>(context, listen: true).getTheme;
+
+            return AlertDialog(
+              backgroundColor: selectedThemeData.scaffoldBackgroundColor,
+              title: Text(
+                lang.enterDetails,
+                style: TextStyle(
+                  color: selectedThemeData.canvasColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextField(
+                        controller: provider.emailController,
+                        isEmail: true,
+                        isValidator: true,
+                        label: lang.email,
+                        hintText: lang.enterEmail,
+                        textInputType: TextInputType.emailAddress,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  TextFormField(
-                    cursorColor: selectedThemeData.primaryColor,
-                    controller: provider.dobController,
-                    readOnly: true,
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: ctx,
-                        initialDate:
-                            DateTime.tryParse(provider.dobController.text) ??
-                                DateTime(2000, 1, 1),
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                      );
-                      if (pickedDate != null) {
-                        provider.setDate(pickedDate);
-                      }
-                    },
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return '${lang.enterBirthDate} is required';
-                      }
-                      return null;
-                    },
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: selectedThemeData.cardColor,
-                      hintText: lang.enterBirthDate,
-                      hintStyle: TextStyle(
-                        color: selectedThemeData.canvasColor,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.transparent),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.transparent),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: selectedThemeData.primaryColor,
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Age / Birth Year',
+                          style: TextStyle(
+                            color: selectedThemeData.canvasColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(6),
                       ),
-                      suffixIcon: const Icon(Icons.calendar_today),
+                      const SizedBox(height: 5),
+                      DropdownButtonFormField<int>(
+                        value: selectedBirthYear,
+                        isExpanded: true,
+                        dropdownColor: selectedThemeData.cardColor,
+                        style: TextStyle(
+                          color: selectedThemeData.canvasColor,
+                          fontSize: 14,
+                        ),
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: selectedThemeData.canvasColor,
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: selectedThemeData.cardColor,
+                          hintText: 'Select your birth year',
+                          hintStyle: TextStyle(
+                            color: selectedThemeData.canvasColor
+                                .withValues(alpha: 0.6),
+                            fontSize: 13,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.cake_outlined,
+                            color: selectedThemeData.canvasColor
+                                .withValues(alpha: 0.7),
+                          ),
+                          border: OutlineInputBorder(
+                            borderSide:
+                                const BorderSide(color: Colors.transparent),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide:
+                                const BorderSide(color: Colors.transparent),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: selectedThemeData.primaryColor,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        items: birthYears.map((year) {
+                          final age = currentYear - year;
+                          return DropdownMenuItem<int>(
+                            value: year,
+                            child: Text(
+                              '$year  ($age years)',
+                              style: TextStyle(
+                                color: selectedThemeData.canvasColor,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: isSubmitting
+                            ? null
+                            : (year) {
+                                if (year != null) {
+                                  setDialogState(() {
+                                    selectedBirthYear = year;
+                                    final age = currentYear - year;
+                                    provider.ageController.text = '$age';
+                                  });
+                                }
+                              },
+                        validator: (val) {
+                          if (val == null &&
+                              provider.ageController.text.trim().isEmpty) {
+                            return 'Please select your birth year / age';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      CustomTextField(
+                        controller: provider.refferedByController,
+                        hintText: lang.referralCodeOptional,
+                        label: lang.enterReferralCode,
+                        textInputType: TextInputType.text,
+                        capitalization: TextCapitalization.characters,
+                        isValidator: false,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: selectedThemeData.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  CustomTextField(
-                    controller: provider.refferedByController,
-                    hintText: lang.referralCodeOptional,
-                    label: lang.enterReferralCode,
-                    textInputType: TextInputType.text,
-                    capitalization: TextCapitalization.characters,
-                    isValidator: false,
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() {
+                            isSubmitting = true;
+                          });
+
+                          var result = await provider.updateUserDetails();
+                          if (!dialogCtx.mounted) return;
+
+                          if (result['success'] == true) {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('isLoggedIn', true);
+
+                            if (provider.userObject.id != null) {
+                              await provider.getUserById(provider.userObject.id!);
+                            }
+
+                            await StagedRegistrationService.instance
+                                .markStepCompleted(
+                              step: StagedRegistrationStep.emailAndAge,
+                              userId: provider.userObject.id,
+                            );
+
+                            if (provider.refferedByController.text
+                                .trim()
+                                .isNotEmpty) {
+                              await ReferralService.instance.clearReferralCode();
+                            }
+
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                lang.profileUpdatedSuccessfully,
+                                isSuccess: true,
+                              );
+                            }
+
+                            Navigator.of(dialogCtx).pop();
+                          } else {
+                            setDialogState(() {
+                              isSubmitting = false;
+                            });
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                'Failure: ${result['message']}',
+                                isSuccess: false,
+                              );
+                            }
+                          }
+                        },
+                  child: Center(
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Continue',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: selectedThemeData.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
                 ),
-              ),
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                var result = await provider.updateUserDetails();
-                if (!ctx.mounted) return;
-                if (result['success'] == true) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isLoggedIn', true);
-
-                  if (provider.userObject.id != null) {
-                    await provider.getUserById(provider.userObject.id!);
-                  }
-
-                  CustomToast.show(
-                    context,
-                    lang.profileUpdatedSuccessfully,
-                    isSuccess: true,
-                  );
-
-                  Navigator.of(ctx).pop();
-                  // Re-evaluate next stage
-                  if (context.mounted) {
-                    confirmDetails(context);
-                  }
-                } else {
-                  CustomToast.show(
-                    context,
-                    'Failure: ${result['message']}',
-                    isSuccess: false,
-                  );
-                }
-              },
-              child: const Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
+    StagedRegistrationService.instance.setDialogActive(false);
   }
 
   // STAGE 2: Second App Open / Remaining Profile Information Popup (Single Name Field)
@@ -2228,123 +2321,161 @@ class _HomePageState extends State<HomePage>
 
     final initialFirst = userProvider.userObject.firstName ??
         userProvider.firstNameController.text;
-    final initialLast =
-        userProvider.userObject.lastName ?? userProvider.lastNameController.text;
+    final initialLast = userProvider.userObject.lastName ??
+        userProvider.lastNameController.text;
     final initialFullName = '$initialFirst $initialLast'.trim();
     final nameController = TextEditingController(text: initialFullName);
+
+    StagedRegistrationService.instance.setDialogActive(true);
+    bool isSubmitting = false;
 
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        UserProvider provider =
-            Provider.of<UserProvider>(context, listen: true);
-        var selectedThemeData =
-            Provider.of<ThemeProvider>(context, listen: true).getTheme;
-        return AlertDialog(
-          backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-          title: Text(
-            lang.enterDetails,
-            style: TextStyle(
-              color: selectedThemeData.canvasColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomTextField(
-                    controller: nameController,
-                    isName: true,
-                    label: 'Name',
-                    hintText: 'Enter your name',
-                    isValidator: true,
-                    textInputType: TextInputType.name,
-                    capitalization: TextCapitalization.words,
-                    validator: (val) {
-                      if (val == null || val.trim().isEmpty) {
-                        return 'Name cannot be empty';
-                      }
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: selectedThemeData.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final provider = Provider.of<UserProvider>(context, listen: true);
+            final selectedThemeData =
+                Provider.of<ThemeProvider>(context, listen: true).getTheme;
+
+            return AlertDialog(
+              backgroundColor: selectedThemeData.scaffoldBackgroundColor,
+              title: Text(
+                lang.enterDetails,
+                style: TextStyle(
+                  color: selectedThemeData.canvasColor,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final fullName = nameController.text.trim();
-                final parts = fullName.split(RegExp(r'\s+'));
-                final firstName = parts.first;
-                final lastName =
-                    parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-                provider.firstNameController.text = firstName;
-                provider.lastNameController.text = lastName;
-
-                var result = await provider.updateUserDetails();
-                if (!ctx.mounted) return;
-                if (result['success'] == true) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isLoggedIn', true);
-
-                  if (provider.userObject.id != null) {
-                    await provider.getUserById(provider.userObject.id!);
-                  }
-
-                  CustomToast.show(
-                    context,
-                    lang.profileUpdatedSuccessfully,
-                    isSuccess: true,
-                  );
-
-                  Navigator.of(ctx).pop();
-                  // Re-evaluate next stage
-                  if (context.mounted) {
-                    confirmDetails(context);
-                  }
-                } else {
-                  CustomToast.show(
-                    context,
-                    'Failure: ${result['message']}',
-                    isSuccess: false,
-                  );
-                }
-              },
-              child: const Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextField(
+                        controller: nameController,
+                        isName: true,
+                        label: 'Name',
+                        hintText: 'Enter your name',
+                        isValidator: true,
+                        textInputType: TextInputType.name,
+                        capitalization: TextCapitalization.words,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Name cannot be empty';
+                          }
+                          if (val.trim().length < 2) {
+                            return 'Please enter a valid name';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: selectedThemeData.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() {
+                            isSubmitting = true;
+                          });
+
+                          final fullName = nameController.text.trim();
+                          final parts = fullName.split(RegExp(r'\s+'));
+                          final firstName = parts.first;
+                          final lastName = parts.length > 1
+                              ? parts.sublist(1).join(' ')
+                              : '';
+
+                          provider.firstNameController.text = firstName;
+                          provider.lastNameController.text = lastName;
+
+                          var result = await provider.updateUserDetails();
+                          if (!dialogCtx.mounted) return;
+
+                          if (result['success'] == true) {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('isLoggedIn', true);
+
+                            if (provider.userObject.id != null) {
+                              await provider.getUserById(provider.userObject.id!);
+                            }
+
+                            await StagedRegistrationService.instance
+                                .markStepCompleted(
+                              step: StagedRegistrationStep.name,
+                              userId: provider.userObject.id,
+                            );
+
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                lang.profileUpdatedSuccessfully,
+                                isSuccess: true,
+                              );
+                            }
+
+                            Navigator.of(dialogCtx).pop();
+                          } else {
+                            setDialogState(() {
+                              isSubmitting = false;
+                            });
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                'Failure: ${result['message']}',
+                                isSuccess: false,
+                              );
+                            }
+                          }
+                        },
+                  child: Center(
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Continue',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
+    StagedRegistrationService.instance.setDialogActive(false);
   }
 
-  // STAGE 3: Third App Open / Address Popup with Location Detection & Cascading Dropdowns
+  // STAGE 3: Third App Open / Location Popup
   Future<void> userLocationPopUp(BuildContext context) async {
     final formKey = GlobalKey<FormState>();
     final lang = AppLocalizations.of(context)!;
@@ -2353,472 +2484,801 @@ class _HomePageState extends State<HomePage>
 
     if (!context.mounted) return;
 
+    StagedRegistrationService.instance.setDialogActive(true);
+
+    int activeMode = 0; // 0: Option A (Current Location), 1: Option B (Manual Entry)
+    bool isSubmitting = false;
+    bool isResolvingState = false;
+    List<String> ambiguousStates = [];
+    String? locationError;
+    bool locationDetected = false;
+
+    // Prefill existing location details if already available
+    final existingLoc = userProvider.userObject.location;
+    if (existingLoc != null) {
+      if (userProvider.countryController.text.trim().isEmpty &&
+          existingLoc.country?.trim().isNotEmpty == true) {
+        userProvider.countryController.text = existingLoc.country!.trim();
+      }
+      if (userProvider.cityController.text.trim().isEmpty &&
+          existingLoc.city?.trim().isNotEmpty == true) {
+        userProvider.cityController.text = existingLoc.city!.trim();
+      }
+      if (userProvider.stateController.text.trim().isEmpty &&
+          existingLoc.state?.trim().isNotEmpty == true) {
+        userProvider.stateController.text = existingLoc.state!.trim();
+      }
+    }
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        UserProvider provider =
-            Provider.of<UserProvider>(context, listen: true);
-        var selectedThemeData =
-            Provider.of<ThemeProvider>(context, listen: true).getTheme;
-        return AlertDialog(
-          backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-          title: Text(
-            lang.enterLocationDetails,
-            style: TextStyle(
-              color: selectedThemeData.canvasColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: selectedThemeData.cardColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: selectedThemeData.primaryColor.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'How would you like to add your address?',
-                          style: TextStyle(
-                            color: selectedThemeData.canvasColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final provider = Provider.of<UserProvider>(context, listen: true);
+            final selectedThemeData =
+                Provider.of<ThemeProvider>(context, listen: true).getTheme;
+
+            Future<void> resolveState() async {
+              final country = provider.countryController.text.trim();
+              final city = provider.cityController.text.trim();
+              if (country.isEmpty || city.isEmpty) return;
+
+              setDialogState(() {
+                isResolvingState = true;
+                ambiguousStates = [];
+              });
+
+              final results = await provider.resolveStateForCity(
+                country: country,
+                city: city,
+              );
+
+              if (!dialogCtx.mounted) return;
+
+              setDialogState(() {
+                isResolvingState = false;
+                if (results.length > 1) {
+                  ambiguousStates = results;
+                } else if (results.length == 1) {
+                  ambiguousStates = [];
+                  provider.stateController.text = results.first;
+                }
+              });
+            }
+
+            return AlertDialog(
+              backgroundColor: selectedThemeData.scaffoldBackgroundColor,
+              title: Text(
+                lang.enterLocationDetails,
+                style: TextStyle(
+                  color: selectedThemeData.canvasColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Mode Selector Tabs
+                      Container(
+                        decoration: BoxDecoration(
+                          color: selectedThemeData.cardColor,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
                           children: [
                             Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: provider.isFetchingCurrentLocation
+                              child: InkWell(
+                                onTap: isSubmitting ||
+                                        provider.isFetchingCurrentLocation
                                     ? null
-                                    : () async {
-                                        final filled = await provider
-                                            .useCurrentLocationFromGoogle();
-                                        if (!ctx.mounted) return;
-                                        if (filled) {
-                                          CustomToast.show(
-                                            ctx,
-                                            'Current address detected & filled',
-                                            isSuccess: true,
-                                          );
-                                        } else {
-                                          CustomToast.show(
-                                            ctx,
-                                            'Unable to fetch location. Please enter address manually.',
-                                            isSuccess: false,
-                                          );
-                                        }
+                                    : () {
+                                        setDialogState(() {
+                                          activeMode = 0;
+                                        });
                                       },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      selectedThemeData.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 10, horizontal: 8),
-                                  shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: activeMode == 0
+                                        ? selectedThemeData.primaryColor
+                                        : Colors.transparent,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                ),
-                                icon: provider.isFetchingCurrentLocation
-                                    ? const SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
+                                  alignment: Alignment.center,
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.my_location,
+                                        size: 15,
+                                        color: activeMode == 0
+                                            ? Colors.white
+                                            : selectedThemeData.canvasColor,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          'Current Location',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: activeMode == 0
+                                                ? Colors.white
+                                                : selectedThemeData.canvasColor,
+                                            fontWeight: activeMode == 0
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            fontSize: 12,
+                                          ),
                                         ),
-                                      )
-                                    : const Icon(Icons.my_location, size: 16),
-                                label: Text(
-                                  provider.isFetchingCurrentLocation
-                                      ? 'Detecting...'
-                                      : 'Use Current Address',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: InkWell(
+                                onTap: isSubmitting ||
+                                        provider.isFetchingCurrentLocation
+                                    ? null
+                                    : () {
+                                        setDialogState(() {
+                                          activeMode = 1;
+                                        });
+                                      },
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: activeMode == 1
+                                        ? selectedThemeData.primaryColor
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.edit_location_alt_outlined,
+                                        size: 15,
+                                        color: activeMode == 1
+                                            ? Colors.white
+                                            : selectedThemeData.canvasColor,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          'Enter Manually',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: activeMode == 1
+                                                ? Colors.white
+                                                : selectedThemeData.canvasColor,
+                                            fontWeight: activeMode == 1
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // OPTION A: Current Location
+                      if (activeMode == 0) ...[
+                        if (locationDetected &&
+                            provider.countryController.text
+                                .trim()
+                                .isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: selectedThemeData.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.green.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.green,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Detected Location',
+                                      style: TextStyle(
+                                        color: selectedThemeData.canvasColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Country: ${provider.countryController.text}',
+                                  style: TextStyle(
+                                    color: selectedThemeData.canvasColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (provider.cityController.text
+                                    .trim()
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'City: ${provider.cityController.text}',
+                                    style: TextStyle(
+                                      color: selectedThemeData.canvasColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                                if (provider.stateController.text
+                                    .trim()
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'State / Region: ${provider.stateController.text}',
+                                    style: TextStyle(
+                                      color: selectedThemeData.canvasColor,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: isSubmitting ||
+                                    provider.isFetchingCurrentLocation
+                                ? null
+                                : () async {
+                                    setDialogState(() {
+                                      locationDetected = false;
+                                      locationError = null;
+                                    });
+                                    final filled = await provider
+                                        .useCurrentLocationFromGoogle();
+                                    if (!dialogCtx.mounted) return;
+                                    setDialogState(() {
+                                      if (filled) {
+                                        locationDetected = true;
+                                      } else {
+                                        locationError =
+                                            'Unable to detect location. Please enter manually.';
+                                        activeMode = 1;
+                                      }
+                                    });
+                                  },
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Re-detect Location'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: selectedThemeData.canvasColor,
+                              side: BorderSide(
+                                color: selectedThemeData.canvasColor
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: selectedThemeData.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.location_searching,
+                                  size: 40,
+                                  color: selectedThemeData.primaryColor,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Detect location automatically using device GPS.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: selectedThemeData.canvasColor,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                ElevatedButton.icon(
+                                  onPressed: provider.isFetchingCurrentLocation
+                                      ? null
+                                      : () async {
+                                          setDialogState(() {
+                                            locationError = null;
+                                          });
+                                          final filled = await provider
+                                              .useCurrentLocationFromGoogle();
+                                          if (!dialogCtx.mounted) return;
+                                          setDialogState(() {
+                                            if (filled) {
+                                              locationDetected = true;
+                                            } else {
+                                              locationError =
+                                                  'Could not detect location. Please check location permissions/GPS, or enter manually.';
+                                            }
+                                          });
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        selectedThemeData.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                  icon: provider.isFetchingCurrentLocation
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.my_location,
+                                          size: 18),
+                                  label: Text(
+                                    provider.isFetchingCurrentLocation
+                                        ? 'Detecting Location...'
+                                        : 'Detect Current Location',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (locationError != null) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color:
+                                      Colors.redAccent.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    locationError!,
+                                    style: const TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        activeMode = 1;
+                                      });
+                                    },
+                                    child: Text(
+                                      'Switch to manual entry →',
+                                      style: TextStyle(
+                                        color: selectedThemeData.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: provider.officeBuildingController,
-                    maxLines: 2,
-                    textCapitalization: TextCapitalization.words,
-                    inputFormatters: [CapitalizeWordsTextInputFormatter()],
-                    cursorColor: selectedThemeData.primaryColor,
-                    onChanged: (value) {
-                      provider.searchAddressSuggestions(value);
-                    },
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: selectedThemeData.cardColor,
-                      labelText: 'Address',
-                      hintText: 'Search or enter your address',
-                      labelStyle:
-                          TextStyle(color: selectedThemeData.canvasColor),
-                      hintStyle: TextStyle(
-                        color: selectedThemeData.canvasColor,
-                        fontSize: 13,
-                      ),
-                      border: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.transparent),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.transparent),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: selectedThemeData.primaryColor,
+
+                      // OPTION B: Enter Manually (Country & City only)
+                      if (activeMode == 1) ...[
+                        // Field 1: Country
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            lang.country,
+                            style: TextStyle(
+                              color: selectedThemeData.canvasColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      prefixIcon: Icon(
-                        Icons.location_on_outlined,
-                        color: selectedThemeData.canvasColor,
-                      ),
-                      suffixIcon: provider.isSearchingAddress
-                          ? Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
+                        const SizedBox(height: 5),
+                        DropdownButtonFormField<String>(
+                          value: provider.countryOptions.contains(
+                                  provider.countryController.text.trim())
+                              ? provider.countryController.text.trim()
+                              : null,
+                          isExpanded: true,
+                          dropdownColor: selectedThemeData.cardColor,
+                          style: TextStyle(
+                            color: selectedThemeData.canvasColor,
+                            fontSize: 14,
+                          ),
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: selectedThemeData.canvasColor,
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: selectedThemeData.cardColor,
+                            hintText: lang.enterCountry,
+                            hintStyle: TextStyle(
+                              color: selectedThemeData.canvasColor
+                                  .withValues(alpha: 0.6),
+                              fontSize: 13,
+                            ),
+                            border: OutlineInputBorder(
+                              borderSide:
+                                  const BorderSide(color: Colors.transparent),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide:
+                                  const BorderSide(color: Colors.transparent),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: selectedThemeData.primaryColor,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          items: provider.countryOptions.map((country) {
+                            return DropdownMenuItem<String>(
+                              value: country,
+                              child: Text(
+                                country,
+                                style: TextStyle(
+                                  color: selectedThemeData.canvasColor,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: isSubmitting
+                              ? null
+                              : (country) {
+                                  if (country != null) {
+                                    setDialogState(() {
+                                      provider.countryController.text = country;
+                                      provider.stateController.clear();
+                                      ambiguousStates = [];
+                                    });
+                                    if (provider.cityController.text
+                                        .trim()
+                                        .isNotEmpty) {
+                                      resolveState();
+                                    }
+                                  }
+                                },
+                          validator: (val) {
+                            if (val == null &&
+                                provider.countryController.text
+                                    .trim()
+                                    .isEmpty) {
+                              return '${lang.enterCountry} is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Field 2: City
+                        CustomTextField(
+                          controller: provider.cityController,
+                          label: 'City',
+                          hintText: 'Enter city',
+                          isValidator: true,
+                          textInputType: TextInputType.text,
+                          capitalization: TextCapitalization.words,
+                          onValueChange: (val) {
+                            if (val.trim().length >= 3 &&
+                                provider.countryController.text
+                                    .trim()
+                                    .isNotEmpty) {
+                              resolveState();
+                            }
+                          },
+                          onFieldSubmitted: (val) {
+                            if (val.trim().isNotEmpty &&
+                                provider.countryController.text
+                                    .trim()
+                                    .isNotEmpty) {
+                              resolveState();
+                            }
+                          },
+                        ),
+
+                        // State / Region auto-detection or disambiguation
+                        if (isResolvingState) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 14,
+                                height: 14,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: selectedThemeData.primaryColor,
                                 ),
                               ),
-                            )
-                          : null,
-                    ),
-                    style: TextStyle(color: selectedThemeData.canvasColor),
-                  ),
-                  if (provider.addressSuggestions.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 6, bottom: 8),
-                      decoration: BoxDecoration(
-                        color: selectedThemeData.cardColor,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: selectedThemeData.primaryColor
-                              .withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: provider.addressSuggestions.length,
-                        separatorBuilder: (_, __) => Divider(
-                          height: 1,
-                          color: selectedThemeData.canvasColor
-                              .withValues(alpha: 0.08),
-                        ),
-                        itemBuilder: (context, index) {
-                          final suggestion =
-                              provider.addressSuggestions[index];
-                          return ListTile(
-                            dense: true,
-                            leading: Icon(
-                              Icons.place_outlined,
-                              color: selectedThemeData.primaryColor,
-                            ),
-                            title: Text(
-                              suggestion['description'] ?? '',
+                              const SizedBox(width: 8),
+                              Text(
+                                'Resolving state / region...',
+                                style: TextStyle(
+                                  color: selectedThemeData.canvasColor
+                                      .withValues(alpha: 0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (ambiguousStates.isNotEmpty) ...[
+                          // Ambiguity: city maps to multiple states
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Select State / Region',
                               style: TextStyle(
                                 color: selectedThemeData.canvasColor,
-                                fontSize: 13,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            onTap: () {
-                              provider.selectAddressSuggestion(suggestion);
+                          ),
+                          const SizedBox(height: 5),
+                          DropdownButtonFormField<String>(
+                            value: ambiguousStates.contains(
+                                    provider.stateController.text.trim())
+                                ? provider.stateController.text.trim()
+                                : null,
+                            isExpanded: true,
+                            dropdownColor: selectedThemeData.cardColor,
+                            style: TextStyle(
+                              color: selectedThemeData.canvasColor,
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: selectedThemeData.cardColor,
+                              hintText: 'Select matching state',
+                              hintStyle: TextStyle(
+                                color: selectedThemeData.canvasColor
+                                    .withValues(alpha: 0.6),
+                                fontSize: 13,
+                              ),
+                              border: OutlineInputBorder(
+                                borderSide:
+                                    const BorderSide(color: Colors.transparent),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide:
+                                    const BorderSide(color: Colors.transparent),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: selectedThemeData.primaryColor,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            items: ambiguousStates.map((st) {
+                              return DropdownMenuItem<String>(
+                                value: st,
+                                child: Text(st,
+                                    style: TextStyle(
+                                        color:
+                                            selectedThemeData.canvasColor)),
+                              );
+                            }).toList(),
+                            onChanged: isSubmitting
+                                ? null
+                                : (st) {
+                                    if (st != null) {
+                                      setDialogState(() {
+                                        provider.stateController.text = st;
+                                      });
+                                    }
+                                  },
+                            validator: (val) {
+                              if (val == null &&
+                                  provider.stateController.text
+                                      .trim()
+                                      .isEmpty) {
+                                return 'Please select your state';
+                              }
+                              return null;
                             },
-                          );
-                        },
-                      ),
+                          ),
+                        ] else if (provider.stateController.text
+                            .trim()
+                            .isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selectedThemeData.cardColor,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: selectedThemeData.primaryColor
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.place,
+                                  size: 16,
+                                  color: selectedThemeData.primaryColor,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'State / Region: ${provider.stateController.text}',
+                                    style: TextStyle(
+                                      color: selectedThemeData.canvasColor,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: selectedThemeData.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                  _buildEditableLocationDropdown(
-                    context: context,
-                    selectedThemeData: selectedThemeData,
-                    controller: provider.countryController,
-                    label: lang.country,
-                    hintText: lang.enterCountry,
-                    options: provider.countryOptions,
-                    onChanged: (value) {
-                      if (value.trim().isEmpty) {
-                        provider.loadStateOptionsByCountry('');
-                      }
-                    },
-                    onFieldSubmitted: (value) {
-                      provider.loadStateOptionsByCountry(value);
-                    },
-                    onOptionSelected: (value) {
-                      provider.loadStateOptionsByCountry(value);
-                    },
                   ),
-                  _buildEditableLocationDropdown(
-                    context: context,
-                    selectedThemeData: selectedThemeData,
-                    controller: provider.stateController,
-                    label: lang.state,
-                    hintText: lang.enterState,
-                    options: provider.stateOptions,
-                    onChanged: (value) {
-                      if (value.trim().isEmpty) {
-                        provider.loadDistrictOptionsByState('');
-                      }
-                    },
-                    onFieldSubmitted: (value) {
-                      provider.loadDistrictOptionsByState(value);
-                    },
-                    onOptionSelected: (value) {
-                      provider.loadDistrictOptionsByState(value);
-                    },
-                  ),
-                  _buildEditableLocationDropdown(
-                    context: context,
-                    selectedThemeData: selectedThemeData,
-                    controller: provider.districtController,
-                    label: lang.district,
-                    hintText: lang.enterDistrict,
-                    options: provider.districtOptions,
-                    onChanged: (value) {
-                      if (value.trim().isEmpty) {
-                        provider.loadTalukaOptionsByDistrict('');
-                      }
-                    },
-                    onFieldSubmitted: (value) {
-                      provider.loadTalukaOptionsByDistrict(value);
-                    },
-                    onOptionSelected: (value) {
-                      provider.loadTalukaOptionsByDistrict(value);
-                    },
-                  ),
-                  _buildEditableLocationDropdown(
-                    context: context,
-                    selectedThemeData: selectedThemeData,
-                    controller: provider.talukaController.text.isNotEmpty
-                        ? provider.talukaController
-                        : provider.cityController,
-                    label: lang.taluka,
-                    hintText: lang.enterTaluka,
-                    options: provider.talukaOptions,
-                  ),
-                  _buildEditableLocationDropdown(
-                    context: context,
-                    selectedThemeData: selectedThemeData,
-                    controller: provider.pinCodeDateController,
-                    label: 'Pincode',
-                    hintText: 'Enter pincode',
-                    options: provider.pincodeOptions,
-                    keyboardType: TextInputType.number,
-                    isRequired: false,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: selectedThemeData.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                var result = await provider.updateUserLocation();
-                if (!ctx.mounted) return;
-                if (result['success'] == true) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isLoggedIn', true);
+                  onPressed: isSubmitting ||
+                          provider.isFetchingCurrentLocation
+                      ? null
+                      : () async {
+                          if (activeMode == 0 &&
+                              provider.countryController.text
+                                  .trim()
+                                  .isEmpty) {
+                            CustomToast.show(
+                              context,
+                              'Please detect current location or enter manually',
+                              isSuccess: false,
+                            );
+                            return;
+                          }
 
-                  if (provider.userObject.id != null) {
-                    await provider.getUserById(provider.userObject.id!);
-                  }
+                          if (activeMode == 1) {
+                            if (!formKey.currentState!.validate()) return;
+                          }
 
-                  CustomToast.show(
-                    context,
-                    lang.profileUpdatedSuccessfully,
-                    isSuccess: true,
-                  );
+                          setDialogState(() {
+                            isSubmitting = true;
+                          });
 
-                  Navigator.of(ctx).pop();
-                } else {
-                  CustomToast.show(
-                    context,
-                    'Failure: ${result['message']}',
-                    isSuccess: false,
-                  );
-                }
-              },
-              child: const Center(
-                child: Text(
-                  'Save Address',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                          var result = await provider.updateUserLocation();
+                          if (!dialogCtx.mounted) return;
+
+                          if (result['success'] == true) {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('isLoggedIn', true);
+
+                            if (provider.userObject.id != null) {
+                              await provider.getUserById(provider.userObject.id!);
+                            }
+
+                            await StagedRegistrationService.instance
+                                .markStepCompleted(
+                              step: StagedRegistrationStep.location,
+                              userId: provider.userObject.id,
+                            );
+
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                lang.profileUpdatedSuccessfully,
+                                isSuccess: true,
+                              );
+                            }
+
+                            Navigator.of(dialogCtx).pop();
+                          } else {
+                            setDialogState(() {
+                              isSubmitting = false;
+                            });
+                            if (context.mounted) {
+                              CustomToast.show(
+                                context,
+                                'Failure: ${result['message']}',
+                                isSuccess: false,
+                              );
+                            }
+                          }
+                        },
+                  child: Center(
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Save Location',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
-  }
-
-  Widget _buildEditableLocationDropdown({
-    required BuildContext context,
-    required ThemeData selectedThemeData,
-    required TextEditingController controller,
-    required String label,
-    required String hintText,
-    required List<String> options,
-    TextInputType keyboardType = TextInputType.text,
-    bool isRequired = true,
-    ValueChanged<String>? onChanged,
-    ValueChanged<String>? onFieldSubmitted,
-    ValueChanged<String>? onOptionSelected,
-  }) {
-    final cleanOptions =
-        options.where((option) => option.trim().isNotEmpty).toSet().toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: selectedThemeData.canvasColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 5),
-          TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            textCapitalization: keyboardType == TextInputType.number
-                ? TextCapitalization.none
-                : TextCapitalization.words,
-            inputFormatters: keyboardType == TextInputType.number
-                ? [FilteringTextInputFormatter.digitsOnly]
-                : [CapitalizeWordsTextInputFormatter()],
-            cursorColor: selectedThemeData.primaryColor,
-            onChanged: onChanged,
-            onFieldSubmitted: onFieldSubmitted,
-            validator: isRequired
-                ? (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '$hintText is required';
-                    }
-                    return null;
-                  }
-                : null,
-            style: TextStyle(
-              color: selectedThemeData.canvasColor,
-              fontSize: 14,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: selectedThemeData.cardColor,
-              hintText: hintText,
-              hintStyle: TextStyle(
-                color: selectedThemeData.canvasColor,
-                fontSize: 14,
-              ),
-              border: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.transparent),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.transparent),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: selectedThemeData.primaryColor),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              suffixIcon: cleanOptions.isEmpty
-                  ? PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.arrow_drop_down,
-                        color: selectedThemeData.primaryColor,
-                      ),
-                      color: selectedThemeData.cardColor,
-                      enabled: false,
-                      itemBuilder: (context) => [
-                        PopupMenuItem<String>(
-                          enabled: false,
-                          child: Text(
-                            'No options available',
-                            style: TextStyle(
-                              color: selectedThemeData.canvasColor
-                                  .withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.arrow_drop_down,
-                        color: selectedThemeData.primaryColor,
-                      ),
-                      color: selectedThemeData.cardColor,
-                      onSelected: (value) {
-                        controller.text = value;
-                        if (onOptionSelected != null) {
-                          onOptionSelected(value);
-                        }
-                      },
-                      itemBuilder: (context) {
-                        return cleanOptions
-                            .map(
-                              (option) => PopupMenuItem<String>(
-                                value: option,
-                                child: Text(
-                                  option,
-                                  style: TextStyle(
-                                    color: selectedThemeData.canvasColor,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList();
-                      },
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
+    StagedRegistrationService.instance.setDialogActive(false);
   }
 }
