@@ -112,12 +112,28 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  void _resetRowState() {
+    _clearHomeAutoPlay('category changed');
+    for (final controller in _rowControllers.values) {
+      controller.dispose();
+    }
+    for (final notifier in _rowActiveIndexes.values) {
+      notifier.dispose();
+    }
+    _rowControllers.clear();
+    _rowActiveIndexes.clear();
+    _rowItemCounts.clear();
+    _rowItems.clear();
+    _rowKeys.clear();
+  }
+
   @override
   void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialSelectedType != widget.initialSelectedType &&
         selectedType != widget.initialSelectedType) {
       selectedType = widget.initialSelectedType;
+      _resetRowState();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           unawaited(_initializeData());
@@ -816,10 +832,12 @@ class _HomePageState extends State<HomePage>
     ThemeData theme,
     DashboardProvider dashboardProvider,
   ) {
+    final normalizedSelectedType = selectedType.trim().toUpperCase();
     final heroItems = dashboardProvider.dashboardData
         .expand((row) => row.movies ?? const <Content>[])
         .where((item) =>
             item.id != null &&
+            (item.type?.trim().toUpperCase() == normalizedSelectedType) &&
             (item.posterUrlList?.isNotEmpty ?? false) &&
             (item.title?.trim().isNotEmpty ?? false))
         .toList();
@@ -1839,8 +1857,10 @@ class _HomePageState extends State<HomePage>
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: GestureDetector(
             onTap: () async {
+              if (selectedType == type) return;
               setState(() {
                 selectedType = type;
+                _resetRowState();
               });
               final selectedLanguages =
                   Provider.of<UserProvider>(context, listen: false)
