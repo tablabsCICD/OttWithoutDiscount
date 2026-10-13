@@ -67,7 +67,10 @@ class User {
       gender: json["gender"] as String? ?? "",
       mobileNumber: json["mobileNumber"] as String? ?? "",
       admin: json["admin"] as bool? ?? false,
-      emailId: json["emailId"] as String? ?? "",
+      emailId: (json["emailId"] == null ||
+              json["emailId"].toString().trim().isEmpty)
+          ? null
+          : json["emailId"].toString().trim(),
       refferCode: json["refferCode"] as String? ?? "",
       deviceId: json["deviceId"] as String? ?? "",
       deviceName: json["deviceName"] as String? ?? "",
@@ -102,7 +105,9 @@ class User {
       "gender": gender ?? "",
       "mobileNumber": mobileNumber ?? "",
       "admin": admin ?? false,
-      "emailId": emailId ?? "",
+      "emailId": (emailId != null && emailId!.trim().isNotEmpty)
+          ? emailId!.trim()
+          : null,
       "refferCode": refferCode ?? "",
       "deviceId": deviceId ?? "",
       "deviceName": deviceName ?? "",

@@ -89,9 +89,13 @@ class _AccountDetailsPageState extends State<AccountDetailsPage> {
                       _card(
                         theme: theme,
                         children: [
-                          _inputTile(theme, "First Name", v(user.firstName)),
-                          const SizedBox(height: 12),
-                          _inputTile(theme, "Last Name", v(user.lastName)),
+                          _inputTile(
+                            theme,
+                            "Name",
+                            v([user.firstName, user.lastName]
+                                .where((s) => s != null && s.trim().isNotEmpty)
+                                .join(' ')),
+                          ),
                           const SizedBox(height: 12),
                           _inputTile(theme, "Birthday", v(user.dob)),
                           /* const SizedBox(height: 12),

@@ -8,6 +8,7 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../provider/userProvider.dart';
+import '../../../widgets/month_year_picker_dialog.dart';
 import '../../../widgets/show_toast.dart';
 
 class EditProfilePage extends StatefulWidget {
@@ -23,6 +24,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final first = (userProvider.userObj.firstName ?? '').trim();
+    final last = (userProvider.userObj.lastName ?? '').trim();
+    final currentFullName = '$first $last'.trim();
+    if (currentFullName.isNotEmpty) {
+      userProvider.nameController.text = currentFullName;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       getData();
@@ -38,6 +46,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (!mounted) return;
     if (user != null) {
       await userProvider.getUserById(user.id!);
+      if (!mounted) return;
+      if (userProvider.nameController.text.trim().isEmpty) {
+        final first = (userProvider.userObj.firstName ?? '').trim();
+        final last = (userProvider.userObj.lastName ?? '').trim();
+        final currentFullName = '$first $last'.trim();
+        if (currentFullName.isNotEmpty) {
+          userProvider.nameController.text = currentFullName;
+        }
+      }
     }
   }
 
@@ -87,6 +104,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     TextButton(
                       onPressed: () {
                         userProvider.profileController.clear();
+                        final first =
+                            (userProvider.userObj.firstName ?? '').trim();
+                        final last =
+                            (userProvider.userObj.lastName ?? '').trim();
+                        userProvider.nameController.text =
+                            '$first $last'.trim();
                         Navigator.of(context).pop(true);
                       },
                       child: Text(
@@ -164,34 +187,38 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     const SizedBox(height: 20),
                     CustomTextField(
-                      controller: userProvider.firstNameController,
-                      label: 'Enter First Name',
+                      controller: userProvider.nameController,
+                      label: 'Name',
                       isName: true,
-                      hintText: userProvider.userObj.firstName != null
-                          ? userProvider.userObj.firstName!.isNotEmpty
-                              ? userProvider.userObj.firstName!
-                              : 'Enter a valid name'
-                          : 'Enter a valid name',
-                      isValidator: true,
+                      hintText: (() {
+                        final first =
+                            (userProvider.userObj.firstName ?? '').trim();
+                        final last =
+                            (userProvider.userObj.lastName ?? '').trim();
+                        final fullName = '$first $last'.trim();
+                        return fullName.isNotEmpty
+                            ? fullName
+                            : 'Enter your name';
+                      })(),
+                      isValidator: false,
                       textInputType: TextInputType.name,
-                    ),
-                    CustomTextField(
-                      controller: userProvider.lastNameController,
-                      label: 'Enter Last Name',
-                      isName: true,
-                      hintText: userProvider.userObj.lastName != null
-                          ? userProvider.userObj.lastName!.isNotEmpty
-                              ? userProvider.userObj.lastName!
-                              : 'Enter a valid name'
-                          : 'Enter a valid name',
-                      isValidator: true,
-                      textInputType: TextInputType.name,
+                      capitalization: TextCapitalization.words,
                     ),
                     CustomTextField(
                       controller: userProvider.emailController,
-                      label: 'Email',
-                      isEmail: true,
-                      isValidator: true,
+                      label: 'Email (Optional)',
+                      isEmail: false,
+                      isValidator: false,
+                      validator: (val) {
+                        if (val != null && val.trim().isNotEmpty) {
+                          final emailRegex =
+                              RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}\$');
+                          if (!emailRegex.hasMatch(val.trim())) {
+                            return 'Enter valid email';
+                          }
+                        }
+                        return null;
+                      },
                       hintText:
                           userProvider.userObj.emailId ?? 'Enter valid email',
                       textInputType: TextInputType.emailAddress,
@@ -210,15 +237,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ), */
                     CustomTextField(
                       controller: userProvider.dobController,
-                      label: 'Birth Date',
-                      isValidator: true,
+                      label: 'Birth Date (Month & Year)',
+                      isValidator: false,
                       readOnly: true,
                       suffixIcon: Icons.calendar_today_outlined,
                       hintText: userProvider.userObj.dob != null
                           ? userProvider.userObj.dob!.isNotEmpty
                               ? userProvider.userObj.dob!
-                              : 'Enter birth date'
-                          : 'Enter birth date',
+                              : 'Select birth month and year'
+                          : 'Select birth month and year',
                       textInputType: TextInputType.datetime,
                       onTap: () => _selectDate(userProvider),
                     ),
@@ -241,13 +268,18 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           userProvider.emailController.text =
                               userProvider.userObj.emailId ?? '';
                         }
-                        if (userProvider.firstNameController.text.isEmpty) {
-                          userProvider.firstNameController.text =
-                              userProvider.userObj.firstName ?? '';
-                        }
-                        if (userProvider.lastNameController.text.isEmpty) {
+                        final fullName =
+                            userProvider.nameController.text.trim();
+                        if (fullName.isNotEmpty) {
+                          final parts = fullName.split(RegExp(r'\s+'));
+                          userProvider.firstNameController.text = parts.first;
                           userProvider.lastNameController.text =
-                              userProvider.userObj.lastName ?? '';
+                              parts.length > 1
+                                  ? parts.sublist(1).join(' ')
+                                  : '';
+                        } else {
+                          userProvider.firstNameController.text = '';
+                          userProvider.lastNameController.text = '';
                         }
                         if (userProvider.mobileController.text.isEmpty) {
                           userProvider.mobileController.text =
@@ -301,22 +333,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _selectDate(UserProvider userProvider) async {
-    final now = DateTime.now();
-    final pickedDate = await showDatePicker(
+    final result = await showBirthMonthYearPicker(
       context: context,
-      initialDate: _initialDobDate(userProvider.dobController.text, now),
-      firstDate: DateTime(1900),
-      lastDate: now,
+      currentValue: userProvider.dobController.text,
     );
 
-    if (pickedDate != null) {
-      userProvider.setDate(pickedDate);
+    if (result != null) {
+      userProvider.setBirthMonthAndYear(
+        result['month'] as String,
+        result['year'] as int,
+      );
     }
-  }
-
-  DateTime _initialDobDate(String value, DateTime fallback) {
-    final parsed = DateTime.tryParse(value);
-    if (parsed == null || parsed.isAfter(fallback)) return fallback;
-    return parsed;
   }
 }

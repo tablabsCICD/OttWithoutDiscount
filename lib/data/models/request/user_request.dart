@@ -101,7 +101,9 @@ class UserRequest {
     "deviceToken": deviceToken,
     "district": district,
     "dob": dob,
-    "emailId": emailId,
+    "emailId": (emailId != null && emailId!.trim().isNotEmpty)
+        ? emailId!.trim()
+        : null,
     "firstName": firstName,
     "gender": gender,
     "id": id,
