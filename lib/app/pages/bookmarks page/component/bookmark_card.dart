@@ -61,12 +61,16 @@ class BookmarkPosterCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Image.network(
-                  posterUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: theme.dividerColor,
-                    child: const Icon(Icons.movie, size: 40),
+                child: Container(
+                  color: Colors.black,
+                  child: Image.network(
+                    posterUrl,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: theme.dividerColor,
+                      child: const Icon(Icons.movie, size: 40),
+                    ),
                   ),
                 ),
               ),

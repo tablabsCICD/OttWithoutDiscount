@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
 import 'package:ott/app/pages/gifted%20movies%20page/GiftDetailsPage.dart';
 import 'package:ott/app/pages/movie%20details%20page/MovieDetailsPage.dart';

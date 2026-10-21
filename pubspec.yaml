@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.21+54
+version: 1.0.22+55
 environment:
   sdk: ^3.5.3
 
@@ -32,7 +32,7 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.9
+  cupertino_icons: ^2.0.0
   shared_preferences: ^2.3.3
   flutter_secure_storage: ^9.2.4
   provider: ^6.1.2
@@ -58,7 +58,6 @@ dependencies:
   firebase_messaging: ^15.2.10
   flutter_local_notifications:
   razorpay_flutter: ^1.4.0
-  lucide_icons: ^0.257.0
   flutter_svg: ^2.2.3
   share_plus: ^12.0.1
   qr_flutter: ^4.1.0
@@ -79,6 +78,7 @@ dependencies:
   # when the bundled libmpv/FFmpeg TLS client is rejected by CloudFront.
   video_player: ^2.9.5
   cached_network_image: ^3.4.1
+  lucide_icons_flutter: ^4.0.0
 
 
 dev_dependencies:

@@ -7,6 +7,10 @@ analyzer:
     always_require_non_null_named_parameters: false # not needed with nnbd
     unnecessary_null_comparison: false # Turned as long as nnbd mix-mode is supported.
 
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
   strong-mode:
     implicit-casts: false
     implicit-dynamic: false

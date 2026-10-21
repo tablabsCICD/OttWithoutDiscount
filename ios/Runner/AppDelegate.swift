@@ -2,26 +2,25 @@ import Flutter
 import UIKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let antiPiracyChannel = "com.filmytell.ott/anti_piracy"
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    registerAntiPiracyChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  private func registerAntiPiracyChannel() {
-    guard let controller = window?.rootViewController as? FlutterViewController else {
-      return
-    }
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    registerAntiPiracyChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
 
+  private func registerAntiPiracyChannel(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: antiPiracyChannel,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: messenger
     )
 
     channel.setMethodCallHandler { call, result in

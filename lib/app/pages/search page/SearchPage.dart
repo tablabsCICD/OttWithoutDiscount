@@ -453,28 +453,48 @@ class _SearchMovieCardState extends State<SearchMovieCard> {
                   height: 140,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: movie.posterUrlList != null &&
-                            movie.posterUrlList!.isNotEmpty
-                        ? Image.network(
-                            movie.posterUrlList![0],
-                            width: 100,
-                            height: 140,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                                Icons.broken_image,
-                                size: 30,
-                                color: Colors.grey),
-                          )
-                        : Container(
-                            width: 100,
-                            height: 140,
-                            color: Colors.grey[300],
-                            child: Icon(
-                              Icons.movie,
-                              size: 60,
-                              color: Colors.grey[600],
+                    child: Container(
+                      color: Colors.black,
+                      child: movie.posterUrlList != null &&
+                              movie.posterUrlList!.isNotEmpty
+                          ? Image.network(
+                              movie.posterUrlList![0],
+                              width: 100,
+                              height: 140,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  size: 30,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 100,
+                              height: 140,
+                              color: Colors.grey[900],
+                              child: const Icon(
+                                Icons.movie,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
                             ),
-                          ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

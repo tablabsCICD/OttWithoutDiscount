@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
 import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/app/core/constant/image_constant.dart';
@@ -936,16 +936,22 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                image,
+              child: Container(
                 width: 300,
                 height: 170,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                color: Colors.black,
+                child: Image.network(
+                  image,
                   width: 300,
                   height: 170,
-                  color: Colors.grey.shade900,
-                  child: const Icon(Icons.movie, color: Colors.white54),
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 300,
+                    height: 170,
+                    color: Colors.grey.shade900,
+                    child: const Icon(Icons.movie, color: Colors.white54),
+                  ),
                 ),
               ),
             ),
