@@ -1539,17 +1539,24 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             itemBuilder: (context, index) {
               return ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  posters[index],
+                child: Container(
                   width: 320,
                   height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  color: Colors.black,
+                  alignment: Alignment.center,
+                  child: Image.network(
+                    posters[index],
                     width: 320,
-                    color: Colors.black26,
-                    child: Icon(
-                      Icons.broken_image,
-                      color: theme.canvasColor.withOpacity(0.5),
+                    height: 180,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 320,
+                      color: Colors.black26,
+                      child: Icon(
+                        Icons.broken_image,
+                        color: theme.canvasColor.withOpacity(0.5),
+                      ),
                     ),
                   ),
                 ),

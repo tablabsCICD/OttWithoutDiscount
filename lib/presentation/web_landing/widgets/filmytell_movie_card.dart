@@ -69,6 +69,7 @@ class _FilmytellMovieCardState extends State<FilmytellMovieCard> {
                     width: widget.width,
                     height: widget.height,
                     decoration: BoxDecoration(
+                      color: Colors.black,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _hovered

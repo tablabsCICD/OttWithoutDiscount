@@ -660,13 +660,16 @@ class _HeroPosterCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
-          child: AspectRatio(
-            aspectRatio: aspectRatio,
-            child: FilmytellNetworkImage(
-              imageUrl: posterUrl,
-              imageUrls: posterUrls,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+          child: Container(
+            color: const Color(0xFF0D0D12),
+            child: AspectRatio(
+              aspectRatio: aspectRatio,
+              child: FilmytellNetworkImage(
+                imageUrl: posterUrl,
+                imageUrls: posterUrls,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+              ),
             ),
           ),
         ),

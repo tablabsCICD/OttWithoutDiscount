@@ -25,7 +25,11 @@ class _FeatureTourTargetState extends State<FeatureTourTarget> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tourProvider = context.read<OnboardingTourProvider>();
+    try {
+      _tourProvider = context.read<OnboardingTourProvider>();
+    } catch (_) {
+      _tourProvider = null;
+    }
   }
 
   @override
@@ -48,12 +52,14 @@ class _FeatureTourTargetState extends State<FeatureTourTarget> {
 
   void _publishRect() {
     if (!mounted) return;
-    final renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    try {
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) return;
 
-    final origin = renderObject.localToGlobal(Offset.zero);
-    final rect = origin & renderObject.size;
-    _tourProvider?.registerTarget(widget.id, rect);
+      final origin = renderObject.localToGlobal(Offset.zero);
+      final rect = origin & renderObject.size;
+      _tourProvider?.registerTarget(widget.id, rect);
+    } catch (_) {}
   }
 
   @override

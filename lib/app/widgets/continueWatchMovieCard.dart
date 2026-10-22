@@ -24,15 +24,21 @@ import 'package:ott/app/provider/userProvider.dart';
 import 'package:ott/app/widgets/StarRatingWidget.dart';
 import 'package:ott/app/widgets/customtextfield.dart';
 import 'package:ott/app/widgets/content_share_sheet.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:ott/data/models/content.dart';
 
 class ContinueWatchMovieCard extends StatefulWidget {
+  static const double standardHeight = 250.0;
+  static const double standardPosterAspectRatio = 16 / 9;
+  static const double mobileCardWidth = 300.0;
+  static const double tabletCardWidth = 300.0;
+  static const double laptopCardWidth = 300.0;
+  static const double desktopCardWidth = 300.0;
   static const double itemWidth = 300;
   static const double itemMargin = 5;
   static const double itemExtent = itemWidth + (itemMargin * 2);
@@ -51,6 +57,22 @@ class ContinueWatchMovieCard extends StatefulWidget {
     this.enableTrailerPreview = true,
     this.isShortFilmTab = false,
   });
+
+  /// Resolves the standardized card width for the given context based on
+  /// platform and responsive viewport breakpoints.
+  static double cardWidthFor(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (screenWidth < 340) {
+      return (screenWidth - 24).clamp(200.0, 300.0);
+    }
+    return itemWidth; // 300.0 like before
+  }
+
+  /// Resolves the standardized item extent (card width + margins).
+  static double cardExtentFor(BuildContext context, [double margin = itemMargin]) {
+    return cardWidthFor(context) + (margin * 2);
+  }
 
   @override
   State<ContinueWatchMovieCard> createState() => _ContinueWatchMovieCardState();
@@ -433,10 +455,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
         ? widget.movie.posterUrlList!.first
         : null;
     final showPreview = _isPreviewPlaying;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = screenWidth < 340
-        ? (screenWidth - 24)
-        : ContinueWatchMovieCard.itemWidth;
+    final cardWidth = ContinueWatchMovieCard.cardWidthFor(context);
     final highlightColor = theme.brightness == Brightness.light
         ? const Color.fromARGB(255, 185, 169, 169)
         : const Color.fromARGB(255, 58, 49, 49);
@@ -500,22 +519,12 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
                   /// 🎬 POSTER + PROGRESS BAR STACK
                   Expanded(
                     child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(11),
-                        ),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(11),
-                        ),
-                        child: _buildMediaPreview(
-                          posterUrl,
-                          theme,
-                          widget.movie,
-                          showPreview,
-                        ),
+                      color: Colors.black,
+                      child: _buildMediaPreview(
+                        posterUrl,
+                        theme,
+                        widget.movie,
+                        showPreview,
                       ),
                     ),
                   ),
@@ -590,41 +599,15 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          posterUrl != null && posterUrl.isNotEmpty
-              ? Image.network(
-                  posterUrl,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.center,
-                  width: double.infinity,
-                  height: double.infinity,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: theme.primaryColor,
-                      ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: theme.canvasColor.withValues(alpha: 0.3),
-                      size: 40,
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: theme.canvasColor.withValues(alpha: 0.3),
-                    size: 40,
-                  ),
-                ),
+          ResponsivePosterImage(
+            imageUrl: posterUrl,
+            imageUrls: content.posterUrlList,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            backgroundColor: Colors.black,
+            loadingProgressColor: theme.primaryColor,
+            errorIconColor: theme.canvasColor.withValues(alpha: 0.3),
+          ),
 
           /// 🔥 CONTINUE WATCHING BAR
           if ((widget.movie.watchedPercentage ?? 0) > 0)
@@ -681,15 +664,23 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
                   ),
                   const SizedBox(height: 2),
                 ],
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: theme.canvasColor,
+                SizedBox(
+                  height: 38,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: theme.canvasColor,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: true,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text.rich(

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
@@ -23,9 +24,9 @@ import 'package:ott/app/provider/dashboardProvider.dart';
 import 'package:ott/app/provider/bookmarkProvider.dart';
 import 'package:ott/app/provider/onboarding_tour_provider.dart';
 import 'package:ott/app/provider/userProvider.dart';
-import 'package:ott/app/widgets/StarRatingWidget.dart';
 import 'package:ott/app/widgets/customtextfield.dart';
 import 'package:ott/app/widgets/feature_tour.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
@@ -34,6 +35,12 @@ import 'package:provider/provider.dart';
 import 'package:ott/data/models/content.dart';
 
 class MovieCard extends StatefulWidget {
+  static const double standardHeight = 220.0;
+  static const double standardPosterAspectRatio = 16 / 9;
+  static const double mobileCardWidth = 300.0;
+  static const double tabletCardWidth = 300.0;
+  static const double laptopCardWidth = 300.0;
+  static const double desktopCardWidth = 300.0;
   static const double itemWidth = 300;
   static const double itemMargin = 5;
   static const double itemExtent = itemWidth + (itemMargin * 2);
@@ -45,6 +52,7 @@ class MovieCard extends StatefulWidget {
   final double? cardMargin;
   final ValueChanged<Content>? onContentUpdated;
   final bool isShortFilmTab;
+  final BoxFit? posterFit;
 
   const MovieCard({
     super.key,
@@ -55,7 +63,30 @@ class MovieCard extends StatefulWidget {
     this.cardMargin,
     this.onContentUpdated,
     this.isShortFilmTab = false,
+    this.posterFit,
   });
+
+  /// Resolves the standardized card width for the given context based on
+  /// platform and responsive viewport breakpoints.
+  static double cardWidthFor(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    if (screenWidth >= 1800) {
+      return desktopCardWidth; // 300.0
+    } else if (screenWidth >= 1024) {
+      return laptopCardWidth; // 300.0
+    } else if (screenWidth >= 600) {
+      return tabletCardWidth; // 300.0
+    } else {
+      return mobileCardWidth; // 300.0
+    }
+  }
+
+  /// Resolves the standardized item extent (card width + margins).
+  static double cardExtentFor(BuildContext context,
+      [double margin = itemMargin]) {
+    return cardWidthFor(context) + (margin * 2);
+  }
 
   @override
   State<MovieCard> createState() => _MovieCardState();
@@ -511,101 +542,99 @@ class _MovieCardState extends State<MovieCard> {
         ? widget.movie.posterUrlList!.first
         : null;
     final showPreview = _isPreviewPlaying;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final defaultWidth =
-        screenWidth < 340 ? (screenWidth - 24) : MovieCard.itemWidth;
+    final defaultWidth = MovieCard.cardWidthFor(context);
     final cardWidth = widget.cardWidth ?? defaultWidth;
     final cardMargin = widget.cardMargin ?? MovieCard.itemMargin;
     final highlightColor = theme.brightness == Brightness.light
         ? const Color.fromARGB(255, 185, 169, 169)
-        : const Color.fromARGB(255, 58, 49, 49);
+        : const Color(0xFFE50914);
 
-    return Stack(
-      children: [
-        Focus(
-          canRequestFocus: ResponsiveWidget.isTabletOrTv(context),
-          onFocusChange: (hasFocus) {
-            if (ResponsiveWidget.isTabletOrTv(context)) {
-              _handleHover(hasFocus);
-            }
-          },
-          onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
-            final key = event.logicalKey;
-            if (key == LogicalKeyboardKey.enter ||
-                key == LogicalKeyboardKey.select ||
-                key == LogicalKeyboardKey.space ||
-                key == LogicalKeyboardKey.gameButtonA) {
-              _openDetails();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: MouseRegion(
-            onEnter: (_) => _handleHover(true),
-            onExit: (_) => _handleHover(false),
-            child: GestureDetector(
-              onTap: _openDetails,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                width: cardWidth,
-                margin: EdgeInsets.only(
-                  left: cardMargin,
-                  right: cardMargin,
-                  bottom: cardMargin,
-                  top: showPreview
-                      ? 4
-                      : 12, // 👈 selected card moves slightly up
-                ),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: showPreview
-                        ? highlightColor
-                        : theme.canvasColor.withValues(alpha: 0.2),
-                    width: showPreview ? 2.5 : 1,
+    return SizedBox(
+      width: cardWidth,
+      height: MovieCard.standardHeight,
+      child: Stack(
+        children: [
+          Focus(
+            canRequestFocus: ResponsiveWidget.isTabletOrTv(context),
+            onFocusChange: (hasFocus) {
+              if (ResponsiveWidget.isTabletOrTv(context)) {
+                _handleHover(hasFocus);
+              }
+            },
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.enter ||
+                  key == LogicalKeyboardKey.select ||
+                  key == LogicalKeyboardKey.space ||
+                  key == LogicalKeyboardKey.gameButtonA) {
+                _openDetails();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: MouseRegion(
+              onEnter: (_) => _handleHover(true),
+              onExit: (_) => _handleHover(false),
+              child: GestureDetector(
+                onTap: _openDetails,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  width: cardWidth,
+                  margin: EdgeInsets.only(
+                    left: cardMargin,
+                    right: cardMargin,
+                    bottom: 2,
+                    top: showPreview ? 1 : 3,
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    /// 🎬 POSTER + PROGRESS BAR STACK
-                    Expanded(
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(11),
-                          ),
-                        ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141418),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: showPreview
+                          ? highlightColor
+                          : const Color(0xFF26262C),
+                      width: showPreview ? 2.0 : 1.0,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      /// 🎬 MEDIA PREVIEW (Video trailer or fallback poster in 16:9)
+                      AspectRatio(
+                        aspectRatio: MovieCard.standardPosterAspectRatio,
                         child: ClipRRect(
                           borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(11),
+                            top: Radius.circular(15),
                           ),
-                          child: _buildMediaPreview(
-                            posterUrl,
-                            theme,
-                            widget.movie,
-                            showPreview,
+                          child: Container(
+                            color: Colors.black,
+                            child: _buildMediaPreview(
+                              posterUrl,
+                              theme,
+                              widget.movie,
+                              showPreview,
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
-                    /// 📄 DETAILS SECTION
-                    _buildContentSection(theme, lang),
-                  ],
+                      /// 📄 DETAILS SECTION (Directly below media area)
+                      Expanded(
+                        child: _buildContentSection(theme, lang),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
 
-        /// ⋮ OPTIONS BUTTON
-        _optionButton(context, widget.movie),
-      ],
+          /// ⋮ OPTIONS BUTTON
+          _optionButton(context, widget.movie),
+        ],
+      ),
     );
   }
 
@@ -619,10 +648,12 @@ class _MovieCardState extends State<MovieCard> {
       return Container(
         color: Colors.black,
         child: Stack(
+          fit: StackFit.expand,
           children: [
             Positioned.fill(
               child: FittedBox(
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
                 child: SizedBox(
                   width: androidController.value.size.width,
                   height: androidController.value.size.height,
@@ -668,11 +699,12 @@ class _MovieCardState extends State<MovieCard> {
       return Container(
         color: Colors.black,
         child: Stack(
+          fit: StackFit.expand,
           children: [
             Positioned.fill(
               child: Video(
                 controller: _videoController!,
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
                 controls: null,
               ),
             ),
@@ -719,41 +751,15 @@ class _MovieCardState extends State<MovieCard> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          posterUrl != null && posterUrl.isNotEmpty
-              ? Image.network(
-                  posterUrl,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.center,
-                  width: double.infinity,
-                  height: double.infinity,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: theme.primaryColor,
-                      ),
-                    );
-                  },
-                  errorBuilder: (_, __, ___) => Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: theme.canvasColor.withOpacity(0.3),
-                      size: 48,
-                    ),
-                  ),
-                )
-              : Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    color: theme.canvasColor.withOpacity(0.3),
-                    size: 48,
-                  ),
-                ),
+          ResponsivePosterImage(
+            imageUrl: posterUrl,
+            imageUrls: content.posterUrlList,
+            fit: widget.posterFit ?? BoxFit.contain,
+            alignment: Alignment.center,
+            backgroundColor: Colors.black,
+            loadingProgressColor: theme.primaryColor,
+            errorIconColor: theme.canvasColor.withValues(alpha: 0.3),
+          ),
 
           /// 🔥 CONTINUE WATCHING BAR
           if ((widget.movie.watchedPercentage ?? 0) > 0)
@@ -765,92 +771,66 @@ class _MovieCardState extends State<MovieCard> {
 
   Widget _buildContentSection(ThemeData theme, AppLocalizations lang) {
     final movie = widget.movie;
-
-    final rating = movie.ratings ?? 0.0;
     final price = movie.price ?? 0;
-
+    final dateStr = formatReleaseDate(movie.releaseDate);
+    final genreStr = (movie.genreList != null && movie.genreList!.isNotEmpty)
+        ? movie.genreList!.join(', ')
+        : 'Drama';
+    //  final metadataText = dateStr.isNotEmpty ? '$dateStr | $genreStr' : genreStr;
+    final metadataText = genreStr;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            StarRatingWidget(
-                              rating: rating,
-                            ),
-                            Text(
-                              " (${movie.ratingCount ?? 0})",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.canvasColor.withOpacity(0.7),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    movie.title ?? 'No Title',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      height: 1.15,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  movie.title ?? 'No Title',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: theme.canvasColor,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text.rich(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  TextSpan(
-                    style: TextStyle(
-                      color: theme.canvasColor.withOpacity(0.7),
-                      fontSize: 12,
+                  const SizedBox(height: 2),
+                  Text(
+                    metadataText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w500,
                     ),
-                    children: [
-                      TextSpan(text: formatReleaseDate(movie.releaseDate)),
-                      const TextSpan(text: ' | '),
-                      TextSpan(
-                        text: movie.genreList?.join(', ') ?? 'N/A',
-                      ),
-                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           movie.isFeatured == true
               ? Container(
                   padding:
-                      const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                      const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: theme.primaryColor.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(6),
+                    color: const Color(0xFFE50914),
                   ),
                   child: const Text(
-                    "Watch Trailer",
+                    "Watch Now",
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -872,20 +852,22 @@ class _MovieCardState extends State<MovieCard> {
     final isShortFilm = widget.isShortFilmTab ||
         ContentType.normalize(movie.type) == ContentType.shortFilm;
 
+    final isSeries = (movie.type?.toLowerCase() ?? '') == 'series';
+
     return GestureDetector(
-      onTap: () => movie.type!.toLowerCase() == 'series'
+      onTap: () => isSeries
           ? _openDetails()
           : isRental
               ? _playMovie()
               : _showCupertinoDialog(context, movie),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(7),
-          color: theme.primaryColor.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(6),
+          color: const Color(0xFFE50914),
         ),
         child: Text(
-          movie.type!.toLowerCase() == 'series'
+          isSeries
               ? isRental
                   ? (isShortFilm ? 'Watch Now' : 'Watch Series')
                   : '₹ $price'
@@ -895,9 +877,9 @@ class _MovieCardState extends State<MovieCard> {
                       : movie.type?.toLowerCase() == "movie"
                           ? lang.watchMovie
                           : lang.watchSeries
-                  : "₹ $price",
+                  : (isShortFilm || price == 0 ? 'Watch Now' : '₹ $price'),
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 11.5,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -1162,7 +1144,7 @@ class _MovieCardState extends State<MovieCard> {
           childrenButtonSize: Size(buttonSize, compactOverlay ? 32 : 35),
           spacing: 2,
           children: [
-            movie.isRental!
+            (movie.isRental ?? false)
                 ? SpeedDialChild()
                 : SpeedDialChild(
                     label: isBookmarked ? "Remove Bookmark" : "Bookmark",
@@ -1290,7 +1272,7 @@ class _MovieCardState extends State<MovieCard> {
                     "How many people do you want to gift this movie to?",
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.canvasColor.withOpacity(0.7),
+                      color: theme.canvasColor.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 10),

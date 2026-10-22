@@ -1,8 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:ott/presentation/web_landing/designs/theme/landing_theme.dart';
-import 'package:shimmer/shimmer.dart';
 
 /// Premium interactive OTT content card supporting desktop hover scaling,
 /// glowing borders, metadata badges, trailer trigger, and tap actions.
@@ -91,39 +90,25 @@ class _PremiumContentCardState extends State<PremiumContentCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Poster Image
-                if (poster != null)
-                  CachedNetworkImage(
-                    imageUrl: poster,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    placeholder: (context, url) => Shimmer.fromColors(
-                      baseColor: isDark ? const Color(0xFF1E2230) : const Color(0xFFE2E8F0),
-                      highlightColor: isDark ? const Color(0xFF2A3045) : const Color(0xFFF1F5F9),
-                      child: Container(color: colors.surface),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: colors.surface,
-                      child: Center(
-                        child: Icon(
-                          Icons.movie_filter_rounded,
-                          size: 40,
-                          color: colors.textMuted.withOpacity(0.5),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
+                // Responsive Poster Image (handles multi-candidate failover, preserves aspect ratio, contain fit)
+                ResponsivePosterImage(
+                  imageUrl: poster,
+                  imageUrls: widget.content.posterUrlList,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                  backgroundColor: colors.surface,
+                  borderRadius: BorderRadius.circular(13),
+                  fallbackBuilder: () => Container(
                     color: colors.surface,
                     child: Center(
                       child: Icon(
                         Icons.movie_filter_rounded,
                         size: 40,
-                        color: colors.textMuted.withOpacity(0.5),
+                        color: colors.textMuted.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
+                ),
 
                 // Ambient Gradient Overlay
                 Positioned.fill(

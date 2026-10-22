@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ott/app/core/constant/api_constant.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/presentation/web_landing/utils/filmytell_theme.dart';
 
 /// Reusable, CORS-safe, multi-candidate Network Image Loader for Filmytell Web.
@@ -10,8 +10,8 @@ class FilmytellNetworkImage extends StatefulWidget {
     this.imageUrls,
     this.width,
     this.height,
-    this.fit = BoxFit.cover,
-    this.alignment = Alignment.topCenter,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
     this.borderRadius = BorderRadius.zero,
     this.fallbackIcon = Icons.movie_outlined,
     this.showShimmer = true,
@@ -28,53 +28,13 @@ class FilmytellNetworkImage extends StatefulWidget {
   final bool showShimmer;
 
   /// Sanitizes any raw image URL (handles relative paths, protocol upgrades, whitespace).
-  static String? sanitizeUrl(String? raw) {
-    if (raw == null) return null;
-    var url = raw.trim();
-    if (url.isEmpty) return null;
-
-    // Fix schema-relative URLs
-    if (url.startsWith('//')) {
-      url = 'https:$url';
-    } else if (url.startsWith('http://')) {
-      url = 'https://${url.substring(7)}';
-    } else if (!url.startsWith('https://')) {
-      final base = ApiConstant.baseUrl.endsWith('/')
-          ? ApiConstant.baseUrl.substring(0, ApiConstant.baseUrl.length - 1)
-          : ApiConstant.baseUrl;
-
-      if (url.startsWith('/')) {
-        url = '$base$url';
-      } else {
-        url = '$base/$url';
-      }
-    }
-
-    return Uri.tryParse(url)?.toString() ?? Uri.encodeFull(url);
-  }
+  static String? sanitizeUrl(String? raw) =>
+      ResponsivePosterImage.sanitizeUrl(raw);
 
   /// Extracts and prioritizes valid candidate URLs.
   /// Prioritizes working S3 / direct HTTPS storage domains.
-  static List<String> sanitizeAndPrioritizeUrls(List<String?> rawUrls) {
-    final results = <String>[];
-    for (final raw in rawUrls) {
-      final sanitized = sanitizeUrl(raw);
-      if (sanitized != null && sanitized.isNotEmpty && !results.contains(sanitized)) {
-        results.add(sanitized);
-      }
-    }
-
-    // Sort to prioritize direct AWS S3 / Filmytell endpoints that pass SSL handshakes
-    results.sort((a, b) {
-      final aIsS3 = a.contains('amazonaws.com') || a.contains('filmytell.com');
-      final bIsS3 = b.contains('amazonaws.com') || b.contains('filmytell.com');
-      if (aIsS3 && !bIsS3) return -1;
-      if (!aIsS3 && bIsS3) return 1;
-      return 0;
-    });
-
-    return results;
-  }
+  static List<String> sanitizeAndPrioritizeUrls(List<String?> rawUrls) =>
+      ResponsivePosterImage.sanitizeAndPrioritizeUrls(rawUrls);
 
   @override
   State<FilmytellNetworkImage> createState() => _FilmytellNetworkImageState();
@@ -83,6 +43,8 @@ class FilmytellNetworkImage extends StatefulWidget {
 class _FilmytellNetworkImageState extends State<FilmytellNetworkImage> {
   late List<String> _candidates;
   int _currentIndex = 0;
+  ImageStream? _imageStream;
+  ImageStreamListener? _streamListener;
 
   @override
   void initState() {
@@ -99,13 +61,55 @@ class _FilmytellNetworkImageState extends State<FilmytellNetworkImage> {
     }
   }
 
+  @override
+  void dispose() {
+    _cleanStream();
+    super.dispose();
+  }
+
+  void _cleanStream() {
+    if (_imageStream != null && _streamListener != null) {
+      _imageStream!.removeListener(_streamListener!);
+    }
+    _imageStream = null;
+    _streamListener = null;
+  }
+
   void _resolveCandidates() {
+    _cleanStream();
     final rawList = <String?>[
       if (widget.imageUrl != null) widget.imageUrl,
       if (widget.imageUrls != null) ...widget.imageUrls!,
     ];
     _candidates = FilmytellNetworkImage.sanitizeAndPrioritizeUrls(rawList);
     _currentIndex = 0;
+
+    if (_candidates.isNotEmpty) {
+      _listenToActiveImageDimensions(_candidates[_currentIndex]);
+    }
+  }
+
+  void _listenToActiveImageDimensions(String url) {
+    if (ResponsivePosterImage.dimensionCache.containsKey(url)) return;
+
+    try {
+      _cleanStream();
+      final stream = NetworkImage(url).resolve(const ImageConfiguration());
+      _imageStream = stream;
+      _streamListener = ImageStreamListener(
+        (ImageInfo info, bool synchronousCall) {
+          final int width = info.image.width;
+          final int height = info.image.height;
+          if (width > 0 && height > 0) {
+            ResponsivePosterImage.dimensionCache[url] =
+                Size(width.toDouble(), height.toDouble());
+            ResponsivePosterImage.aspectRatioCache[url] = width / height;
+          }
+        },
+        onError: (_, __) {},
+      );
+      stream.addListener(_streamListener!);
+    } catch (_) {}
   }
 
   void _handleError() {
@@ -113,6 +117,7 @@ class _FilmytellNetworkImageState extends State<FilmytellNetworkImage> {
       if (mounted) {
         setState(() {
           _currentIndex++;
+          _listenToActiveImageDimensions(_candidates[_currentIndex]);
         });
       }
     }
@@ -128,14 +133,19 @@ class _FilmytellNetworkImageState extends State<FilmytellNetworkImage> {
 
     return ClipRRect(
       borderRadius: widget.borderRadius,
-      child: Image.network(
-        activeUrl,
-        key: ValueKey(activeUrl),
+      child: Container(
         width: widget.width,
         height: widget.height,
-        fit: widget.fit,
+        color: FilmytellTheme.surfaceDark,
         alignment: widget.alignment,
-        filterQuality: FilterQuality.medium,
+        child: Image.network(
+          activeUrl,
+          key: ValueKey(activeUrl),
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          alignment: widget.alignment,
+          filterQuality: FilterQuality.medium,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return widget.showShimmer ? _buildShimmer() : _buildFallback();
@@ -149,8 +159,9 @@ class _FilmytellNetworkImageState extends State<FilmytellNetworkImage> {
           return _buildFallback();
         },
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildShimmer() {
     return _ShimmerBox(

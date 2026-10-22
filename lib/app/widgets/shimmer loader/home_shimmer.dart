@@ -126,7 +126,7 @@ class HomeShimmer extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 300,
+          height: MovieCard.standardHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: itemCount,
@@ -149,7 +149,7 @@ class HomeShimmer extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      width: MovieCard.itemWidth,
+      width: MovieCard.cardWidthFor(context),
       margin: const EdgeInsets.all(MovieCard.itemMargin),
       decoration: BoxDecoration(
         color: theme.cardColor.withOpacity(0.3),
@@ -192,31 +192,24 @@ class HomeShimmer extends StatelessWidget {
           Expanded(
             flex: 4,
             child: Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ShimmerLoader(
                     width: 90,
-                    height: 10,
-                    borderRadius: 6,
+                    height: 8,
+                    borderRadius: 4,
                   ),
-                  const SizedBox(height: 8),
                   const ShimmerLoader(
                     width: double.infinity,
-                    height: 14,
+                    height: 12,
                   ),
-                  const SizedBox(height: 6),
                   ShimmerLoader(
                     width: 120,
-                    height: 10,
-                    borderRadius: 6,
-                  ),
-                  const Spacer(),
-                  ShimmerLoader(
-                    width: 70,
-                    height: 10,
-                    borderRadius: 6,
+                    height: 8,
+                    borderRadius: 4,
                   ),
                 ],
               ),

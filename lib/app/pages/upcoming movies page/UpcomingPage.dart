@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ott/app/pages/movie%20details%20page/MovieDetailsPage.dart';
 import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/app/core/utils/release_date_formatter.dart';
 import 'package:ott/app/pages/series%20details%20page/seriesdetailspage.dart';
 import 'package:ott/app/provider/videoProvider.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/app/widgets/shimmer%20loader/comming_soon_shimmer.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/data/models/content.dart';
@@ -117,10 +117,12 @@ class _UpcomingPageState extends State<UpcomingPage> {
           children: [
             // 🎞 Poster
             Positioned.fill(
-              child: Image.network(
-                item.posterUrlList?.first ?? '',
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: Colors.black26),
+              child: ResponsivePosterImage(
+                imageUrl: item.posterUrlList?.first ?? '',
+                imageUrls: item.posterUrlList,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                backgroundColor: Colors.black,
               ),
             ),
 

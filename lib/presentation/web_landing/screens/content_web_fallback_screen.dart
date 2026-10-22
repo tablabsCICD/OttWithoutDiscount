@@ -464,7 +464,8 @@ class _ContentWebFallbackScreenState extends State<ContentWebFallbackScreen> {
       child: posterUrl.isNotEmpty
           ? Image.network(
               posterUrl,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
               errorBuilder: (_, __, ___) => const Center(
                 child: Icon(
                   Icons.movie,

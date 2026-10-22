@@ -11,6 +11,7 @@ import 'package:ott/app/provider/themeProvider.dart';
 import 'package:ott/app/provider/videoProvider.dart';
 import 'package:ott/app/widgets/ott_tv_focus.dart';
 import 'package:ott/app/widgets/customtextfield.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/app/widgets/shimmer%20loader/search_shimmer.dart';
 import 'package:ott/data/models/cast_member.dart';
 import 'package:ott/data/models/content.dart';
@@ -451,49 +452,27 @@ class _SearchMovieCardState extends State<SearchMovieCard> {
                 SizedBox(
                   width: 100,
                   height: 140,
-                  child: ClipRRect(
+                  child: ResponsivePosterImage(
+                    imageUrl: movie.posterUrlList != null &&
+                            movie.posterUrlList!.isNotEmpty
+                        ? movie.posterUrlList![0]
+                        : null,
+                    imageUrls: movie.posterUrlList,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    backgroundColor: Colors.black,
                     borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      color: Colors.black,
-                      child: movie.posterUrlList != null &&
-                              movie.posterUrlList!.isNotEmpty
-                          ? Image.network(
-                              movie.posterUrlList![0],
-                              width: 100,
-                              height: 140,
-                              fit: BoxFit.contain,
-                              alignment: Alignment.center,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 30,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            )
-                          : Container(
-                              width: 100,
-                              height: 140,
-                              color: Colors.grey[900],
-                              child: const Icon(
-                                Icons.movie,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
-                            ),
+                    fallbackBuilder: () => Container(
+                      width: 100,
+                      height: 140,
+                      color: Colors.grey[900],
+                      child: const Center(
+                        child: Icon(
+                          Icons.movie,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -849,17 +849,24 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                   const BorderRadius.vertical(top: Radius.circular(8)),
               child: Stack(
                 children: [
-                  Image.network(
-                    episode.posterUrl,
+                  Container(
                     height: 190,
                     width: 360,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    color: Colors.black,
+                    alignment: Alignment.center,
+                    child: Image.network(
+                      episode.posterUrl,
                       height: 190,
                       width: 360,
-                      color: Colors.grey.shade900,
-                      child: const Icon(Icons.broken_image,
-                          color: Colors.white54, size: 34),
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 190,
+                        width: 360,
+                        color: Colors.grey.shade900,
+                        child: const Icon(Icons.broken_image,
+                            color: Colors.white54, size: 34),
+                      ),
                     ),
                   ),
                   Positioned.fill(
@@ -2049,19 +2056,26 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Image.network(
-                          ep.posterUrl,
+                        Container(
                           width: 120,
                           height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          color: Colors.black,
+                          alignment: Alignment.center,
+                          child: Image.network(
+                            ep.posterUrl,
                             width: 120,
                             height: 80,
-                            color: Colors.grey.shade800,
-                            child: const Icon(
-                              Icons.broken_image,
-                              color: Colors.white54,
-                              size: 30,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 120,
+                              height: 80,
+                              color: Colors.grey.shade800,
+                              child: const Icon(
+                                Icons.broken_image,
+                                color: Colors.white54,
+                                size: 30,
+                              ),
                             ),
                           ),
                         ),
@@ -2515,17 +2529,24 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               final posterIndex = hasTeaser ? index - 1 : index;
               return ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  posters[posterIndex],
+                child: Container(
                   width: 320,
                   height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  color: Colors.black,
+                  alignment: Alignment.center,
+                  child: Image.network(
+                    posters[posterIndex],
                     width: 320,
-                    color: Colors.black26,
-                    child: Icon(
-                      Icons.broken_image,
-                      color: theme.canvasColor.withOpacity(0.5),
+                    height: 180,
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 320,
+                      color: Colors.black26,
+                      child: Icon(
+                        Icons.broken_image,
+                        color: theme.canvasColor.withOpacity(0.5),
+                      ),
                     ),
                   ),
                 ),

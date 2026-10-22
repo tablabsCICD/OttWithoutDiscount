@@ -8,6 +8,7 @@ import 'package:ott/app/provider/offline_download_provider.dart';
 import 'package:ott/app/provider/playMediaProvider.dart';
 import 'package:ott/app/provider/purchaseContentProvider.dart';
 import 'package:ott/app/widgets/ott_tv_focus.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/app/widgets/shimmer%20loader/comming_soon_shimmer.dart';
 import 'package:ott/data/models/content.dart';
@@ -634,14 +635,14 @@ class _WatchlistPageState extends State<WatchlistPage> {
   Widget _posterBackground(Content item) {
     final posterUrl =
         item.posterUrlList?.isNotEmpty == true ? item.posterUrlList!.first : '';
-    if (posterUrl.isEmpty) {
-      return _offlinePosterFallback(item);
-    }
 
-    return Image.network(
-      posterUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _offlinePosterFallback(item),
+    return ResponsivePosterImage(
+      imageUrl: posterUrl,
+      imageUrls: item.posterUrlList,
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      backgroundColor: Colors.black,
+      fallbackBuilder: () => _offlinePosterFallback(item),
     );
   }
 

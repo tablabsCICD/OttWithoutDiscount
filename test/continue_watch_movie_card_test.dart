@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:ott/app/widgets/continueWatchMovieCard.dart';
+import 'package:ott/app/widgets/responsive_poster_image.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:ott/app/provider/bookmarkProvider.dart';
@@ -162,17 +163,21 @@ void main() {
       expect(find.textContaining('80% watched'), findsOneWidget);
     });
 
-    testWidgets('poster image uses BoxFit.contain to preserve aspect ratio',
+    testWidgets('poster image uses BoxFit.contain to preserve poster without cropping',
         (WidgetTester tester) async {
       await tester.pumpWidget(buildTestWidget(movie: continueMovie));
       await tester.pump();
 
-      final imageFinder = find.byType(Image);
-      expect(imageFinder, findsOneWidget);
+      final responsiveFinder = find.descendant(
+        of: find.byType(ContinueWatchMovieCard),
+        matching: find.byType(ResponsivePosterImage),
+      );
+      expect(responsiveFinder, findsOneWidget);
 
-      final Image imageWidget = tester.widget(imageFinder);
-      expect(imageWidget.fit, equals(BoxFit.contain));
-      expect(imageWidget.alignment, equals(Alignment.center));
+      final ResponsivePosterImage responsiveWidget =
+          tester.widget(responsiveFinder);
+      expect(responsiveWidget.fit, equals(BoxFit.contain));
+      expect(responsiveWidget.alignment, equals(Alignment.center));
       await tester.pumpAndSettle();
     });
 
@@ -227,9 +232,10 @@ void main() {
         final byteData =
             await image.toByteData(format: ui.ImageByteFormat.png);
         if (byteData != null) {
-          final file = File(
-              '/Users/swatinavale/.gemini/antigravity-ide/brain/4691e041-5989-4c52-90fb-9cf07b12d26f/continue_watch_card_preview.png');
-          await file.writeAsBytes(byteData.buffer.asUint8List());
+          try {
+            final file = File('test/continue_watch_card_preview.png');
+            await file.writeAsBytes(byteData.buffer.asUint8List());
+          } catch (_) {}
         }
       });
     });
