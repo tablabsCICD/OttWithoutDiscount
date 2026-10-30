@@ -36,7 +36,7 @@ class _WalletPageState extends State<WalletPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeProvider>(context, listen: false).getTheme;
+    final theme = Provider.of<ThemeProvider>(context).getTheme;
     final horizontal = ResponsiveWidget.isDesktop(context)
         ? 200.0
         : ResponsiveWidget.isTablet(context)
@@ -164,9 +164,13 @@ class _WalletPageState extends State<WalletPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     "Transaction History",
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: theme.canvasColor,
+                    ),
                   ),
                   //_buildFilterBar(context),
                 ],
@@ -180,9 +184,16 @@ class _WalletPageState extends State<WalletPage> {
               final list = p.filteredTransactionHistory;
 
               if (list.isEmpty) {
-                return const SliverFillRemaining(
+                return SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Center(child: Text("No transactions")),
+                  child: Center(
+                    child: Text(
+                      "No transactions",
+                      style: TextStyle(
+                        color: theme.canvasColor.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
                 );
               }
 

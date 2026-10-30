@@ -13,5 +13,14 @@ void main() {
     expect(formatReleaseDate(null), isEmpty);
     expect(formatReleaseDate(''), isEmpty);
     expect(formatReleaseDate('not-a-date'), 'not-a-date');
+    expect(formatReleaseDate(0), isEmpty);
+    expect(formatReleaseDate(-1), isEmpty);
+  });
+
+  test('formats epoch timestamp release dates', () {
+    // 1793318400000 ms is 2026-10-30
+    final expectedDate = formatReleaseDate(DateTime.fromMillisecondsSinceEpoch(1793318400000));
+    expect(formatReleaseDate(1793318400000), expectedDate);
+    expect(formatReleaseDate('1793318400000'), expectedDate);
   });
 }

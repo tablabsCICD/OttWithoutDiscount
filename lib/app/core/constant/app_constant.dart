@@ -1,6 +1,6 @@
 class AppConstant {
-  static const String appVersion = "1.0.22";
-  static const int appBuildNumber = 57;
+  static const String appVersion = "1.0.24";
+  static const int appBuildNumber = 59;
   static final String GOOGLE_KEY = "AIzaSyDbIESWMKX_4TqGEiFUhbu8-PUpLnVBPrc";
   static const String razorpayKeyId = String.fromEnvironment(
     'RAZORPAY_KEY_ID',

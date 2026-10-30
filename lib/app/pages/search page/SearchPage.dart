@@ -120,7 +120,9 @@ class _SearchPageState extends State<SearchPage> {
                               child: Text(
                                 lang.filter,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: ResponsiveWidget.isDesktop(context)
+                                      ? selectedThemeData.canvasColor
+                                      : Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -129,8 +131,12 @@ class _SearchPageState extends State<SearchPage> {
                       PopupMenuButton(
                         color: selectedThemeData.cardColor,
                         tooltip: lang.filter,
-                        icon:
-                            const Icon(Icons.filter_list, color: Colors.white),
+                        icon: Icon(
+                          Icons.filter_list,
+                          color: ResponsiveWidget.isDesktop(context)
+                              ? selectedThemeData.canvasColor
+                              : Colors.white,
+                        ),
                         itemBuilder: (context) => [
                           PopupMenuItem(
                             child: StatefulBuilder(
@@ -465,7 +471,7 @@ class _SearchMovieCardState extends State<SearchMovieCard> {
                     fallbackBuilder: () => Container(
                       width: 100,
                       height: 140,
-                      color: Colors.grey[900],
+                      color: theme.cardColor,
                       child: const Center(
                         child: Icon(
                           Icons.movie,

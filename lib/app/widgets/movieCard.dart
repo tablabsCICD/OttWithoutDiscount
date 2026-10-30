@@ -589,12 +589,14 @@ class _MovieCardState extends State<MovieCard> {
                     top: showPreview ? 1 : 3,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF141418),
+                    color: theme.cardColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: showPreview
                           ? highlightColor
-                          : const Color(0xFF26262C),
+                          : (theme.brightness == Brightness.dark
+                              ? const Color(0xFF26262C)
+                              : Colors.grey.shade300),
                       width: showPreview ? 2.0 : 1.0,
                     ),
                   ),
@@ -772,11 +774,9 @@ class _MovieCardState extends State<MovieCard> {
   Widget _buildContentSection(ThemeData theme, AppLocalizations lang) {
     final movie = widget.movie;
     final price = movie.price ?? 0;
-    final dateStr = formatReleaseDate(movie.releaseDate);
     final genreStr = (movie.genreList != null && movie.genreList!.isNotEmpty)
         ? movie.genreList!.join(', ')
         : 'Drama';
-    //  final metadataText = dateStr.isNotEmpty ? '$dateStr | $genreStr' : genreStr;
     final metadataText = genreStr;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -797,7 +797,7 @@ class _MovieCardState extends State<MovieCard> {
                     style: GoogleFonts.inter(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.canvasColor,
                       height: 1.15,
                     ),
                     maxLines: 2,
@@ -809,7 +809,7 @@ class _MovieCardState extends State<MovieCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: theme.canvasColor.withValues(alpha: 0.7),
                       fontSize: 10.5,
                       fontWeight: FontWeight.w500,
                     ),
@@ -848,16 +848,16 @@ class _MovieCardState extends State<MovieCard> {
   Widget _buildPriceButton(
       ThemeData theme, AppLocalizations lang, double price) {
     final movie = widget.movie;
-    final isRental = movie.isRental ?? false;
-    final isShortFilm = widget.isShortFilmTab ||
-        ContentType.normalize(movie.type) == ContentType.shortFilm;
+    final contentType = ContentType.normalize(movie.type);
+    final isSeries = contentType == ContentType.series;
+    final isPurchased = movie.isRental == true;
 
-    final isSeries = (movie.type?.toLowerCase() ?? '') == 'series';
+    final shouldShowWatchNow = isSeries || isPurchased;
 
     return GestureDetector(
       onTap: () => isSeries
           ? _openDetails()
-          : isRental
+          : isPurchased
               ? _playMovie()
               : _showCupertinoDialog(context, movie),
       child: Container(
@@ -867,17 +867,7 @@ class _MovieCardState extends State<MovieCard> {
           color: const Color(0xFFE50914),
         ),
         child: Text(
-          isSeries
-              ? isRental
-                  ? (isShortFilm ? 'Watch Now' : 'Watch Series')
-                  : '₹ $price'
-              : isRental
-                  ? isShortFilm
-                      ? 'Watch Now'
-                      : movie.type?.toLowerCase() == "movie"
-                          ? lang.watchMovie
-                          : lang.watchSeries
-                  : (isShortFilm || price == 0 ? 'Watch Now' : '₹ $price'),
+          shouldShowWatchNow ? 'Watch Now' : '₹ $price',
           style: const TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.bold,

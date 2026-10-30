@@ -73,7 +73,9 @@ Future<bool?> showGiftClaimDialog(
                           onPressed: () => Navigator.pop(dialogContext),
                           child: Text(
                             "Cancel",
-                            style: TextStyle(color: Colors.grey[300]),
+                            style: TextStyle(
+                              color: theme.canvasColor.withOpacity(0.7),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),

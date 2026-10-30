@@ -6,8 +6,13 @@ class SeriesDetailsResponse {
   SeriesDetailsResponse({required this.data});
 
   factory SeriesDetailsResponse.fromJson(Map<String, dynamic> json) {
+    final dataMap = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : json['data'] is Map
+            ? Map<String, dynamic>.from(json['data'] as Map)
+            : <String, dynamic>{};
     return SeriesDetailsResponse(
-      data: SeriesUserData.fromJson(json['data']),
+      data: SeriesUserData.fromJson(dataMap),
     );
   }
 
@@ -31,13 +36,17 @@ class SeriesUserData {
 
   factory SeriesUserData.fromJson(Map<String, dynamic> json) {
     return SeriesUserData(
-      seriesId: json['seriesId'],
+      seriesId: json['seriesId'] is int
+          ? json['seriesId'] as int
+          : int.tryParse(json['seriesId']?.toString() ?? '') ?? 0,
       title: json['title'] ?? '',
       description: json['description'] ?? '',
       posterUrl: json['posterUrl'] ?? '',
-      seasons: (json['seasons'] as List)
-          .map((e) => SeasonResponse.fromJson(e))
-          .toList(),
+      seasons: (json['seasons'] as List?)
+              ?.map((e) => SeasonResponse.fromJson(
+                  e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          <SeasonResponse>[],
     );
   }
 
@@ -74,17 +83,31 @@ class SeasonResponse {
   });
 
   factory SeasonResponse.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['releaseDate'];
+    final parsedDate = rawDate is int
+        ? rawDate
+        : int.tryParse(rawDate?.toString() ?? '') ?? 0;
+
     return SeasonResponse(
-      seasonId: json['seasonId'],
-      seasonNumber: json['seasonNumber'],
+      seasonId: json['seasonId'] is int
+          ? json['seasonId'] as int
+          : int.tryParse(json['seasonId']?.toString() ?? '') ?? 0,
+      seasonNumber: json['seasonNumber'] is int
+          ? json['seasonNumber'] as int
+          : int.tryParse(json['seasonNumber']?.toString() ?? '') ?? 1,
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      releaseDate: json['releaseDate'],
-      isSeasonPurchased: json['isSeasonPurchased'] ?? false,
-      price: json['price'],
-      episodes: (json['episodes'] as List)
-          .map((e) => EpisodeResponse.fromJson(e))
-          .toList(),
+      releaseDate: parsedDate,
+      isSeasonPurchased: json['isSeasonPurchased'] == true ||
+          json['seasonPurchased'] == true,
+      price: json['price'] is num
+          ? json['price'] as num
+          : num.tryParse(json['price']?.toString() ?? ''),
+      episodes: (json['episodes'] as List?)
+              ?.map((e) => EpisodeResponse.fromJson(
+                  e is Map<String, dynamic> ? e : Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          <EpisodeResponse>[],
     );
   }
 
@@ -132,19 +155,42 @@ class EpisodeResponse {
   });
 
   factory EpisodeResponse.fromJson(Map<String, dynamic> json) {
+    final rawRuntime = json['runtime'];
+    final parsedRuntime = rawRuntime is int
+        ? rawRuntime
+        : int.tryParse(rawRuntime?.toString() ?? '') ?? 0;
+
+    final rawDate = json['releaseDate'];
+    final parsedDate = rawDate is int
+        ? rawDate
+        : int.tryParse(rawDate?.toString() ?? '') ?? 0;
+
+    final purchased = json['isPurchased'] == true ||
+        json['episodePurchased'] == true;
+    final free = json['isFree'] == true || json['free'] == true;
+    final locked = json['isLocked'] == true ||
+        json['locked'] == true ||
+        (!purchased && !free);
+
     return EpisodeResponse(
-      episodeId: json['episodeId'],
-      episodeNumber: json['episodeNumber'],
+      episodeId: json['episodeId'] is int
+          ? json['episodeId'] as int
+          : int.tryParse(json['episodeId']?.toString() ?? '') ?? 0,
+      episodeNumber: json['episodeNumber'] is int
+          ? json['episodeNumber'] as int
+          : int.tryParse(json['episodeNumber']?.toString() ?? '') ?? 1,
       title: json['title'] ?? '',
       description: json['description'] ?? '',
-      runtime: json['runtime'],
-      releaseDate: json['releaseDate'],
-      isFree: json['isFree'] ?? json['free'] ?? false,
+      runtime: parsedRuntime,
+      releaseDate: parsedDate,
+      isFree: free,
       posterUrl: json['posterUrl'] ?? '',
-      videoUrl: json['videoUrl'],
-      isPurchased: json['isPurchased'] ?? json['episodePurchased'] ?? false,
-      isLocked: json['isLocked'] ?? json['locked'] ?? true,
-      price: json['price'],
+      videoUrl: (json['videoUrl'] ?? json['contentUrl'] ?? json['url'])?.toString(),
+      isPurchased: purchased,
+      isLocked: locked,
+      price: json['price'] is num
+          ? json['price'] as num
+          : num.tryParse(json['price']?.toString() ?? ''),
     );
   }
 

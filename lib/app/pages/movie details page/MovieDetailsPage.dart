@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
 import 'package:ott/app/core/utils/content_type.dart';
+import 'package:ott/app/core/utils/release_date_formatter.dart';
 import 'package:ott/app/core/constant/image_constant.dart';
 import 'package:ott/app/pages/watchlist%20page/component/DisplayTrailer.dart';
 import 'package:ott/app/pages/wallet%20page/MovieBillingPage.dart';
@@ -337,7 +338,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: ColoredBox(
-            color: Colors.black,
+            color: selectedThemeData.scaffoldBackgroundColor,
             child: CustomScrollView(
               controller: _tvScrollController,
               slivers: [
@@ -795,8 +796,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
               width: 104,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
-                border: Border.all(color: Colors.white.withOpacity(0.14)),
+                color: theme.cardColor,
+                border: Border.all(color: theme.canvasColor.withOpacity(0.14)),
               ),
               child: ClipOval(
                 child: imageUrl.isNotEmpty
@@ -815,8 +816,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: theme.canvasColor,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -827,7 +828,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.58),
+                  color: theme.canvasColor.withOpacity(0.58),
                   fontSize: 12,
                 ),
               ),
@@ -960,8 +961,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
               content.title ?? 'Untitled',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: theme.canvasColor,
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
@@ -975,7 +976,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
               ].whereType<String>().join('  |  '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withOpacity(0.58)),
+              style: TextStyle(color: theme.canvasColor.withOpacity(0.58)),
             ),
           ],
         ),
@@ -1163,7 +1164,18 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
   }
 
   String _releaseYearText(dynamic releaseDate) {
-    final text = releaseDate?.toString().trim() ?? '';
+    if (releaseDate == null) return '';
+    if (releaseDate is DateTime) return releaseDate.year.toString();
+    final numeric = releaseDate is int
+        ? releaseDate
+        : int.tryParse(releaseDate.toString().trim());
+    if (numeric != null && numeric > 1000000000) {
+      final dt = numeric > 100000000000
+          ? DateTime.fromMillisecondsSinceEpoch(numeric)
+          : DateTime.fromMillisecondsSinceEpoch(numeric * 1000);
+      return dt.year.toString();
+    }
+    final text = releaseDate.toString().trim();
     if (text.length >= 4) return text.substring(0, 4);
     return text;
   }
@@ -1194,10 +1206,17 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.8),
-                Colors.black.withOpacity(0.9),
-              ],
+              colors: selectedThemeData.brightness == Brightness.dark
+                  ? [
+                      Colors.black.withOpacity(0.8),
+                      Colors.black.withOpacity(0.9),
+                    ]
+                  : [
+                      selectedThemeData.scaffoldBackgroundColor
+                          .withOpacity(0.85),
+                      selectedThemeData.scaffoldBackgroundColor
+                          .withOpacity(0.95),
+                    ],
             ),
           ),
         ),
@@ -1218,7 +1237,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                           decoration: BoxDecoration(
                             border: Border.all(
                               width: 1,
-                              color: Colors.white.withOpacity(0.5),
+                              color: selectedThemeData.canvasColor.withOpacity(0.5),
                             ),
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1255,9 +1274,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                         const SizedBox(width: 4),
                         Text(
                           '(${content.ratingCount ?? '0'} reviews)',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white70,
+                            color: selectedThemeData.canvasColor.withOpacity(0.7),
                           ),
                         ),
                         const Spacer(),
@@ -1287,7 +1306,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                       "  ${content.description ?? 'N/A'}",
                       textAlign: TextAlign.left,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: selectedThemeData.canvasColor.withOpacity(0.7),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1381,10 +1400,17 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.8),
-                Colors.black.withOpacity(0.9),
-              ],
+              colors: selectedThemeData.brightness == Brightness.dark
+                  ? [
+                      Colors.black.withOpacity(0.8),
+                      Colors.black.withOpacity(0.9),
+                    ]
+                  : [
+                      selectedThemeData.scaffoldBackgroundColor
+                          .withOpacity(0.85),
+                      selectedThemeData.scaffoldBackgroundColor
+                          .withOpacity(0.95),
+                    ],
             ),
           ),
         ),
@@ -1423,7 +1449,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 10,
-                      color: Colors.white.withOpacity(0.7),
+                      color: selectedThemeData.canvasColor.withOpacity(0.7),
                     ),
                   ),
                 ],
@@ -1581,8 +1607,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
     bool centered = false,
   }) {
     final theme = Theme.of(context);
-    final releaseDateText = content.releaseDate?.toString().trim();
-    final displayText = (releaseDateText != null && releaseDateText.isNotEmpty)
+    final releaseDateText = formatReleaseDate(content.releaseDate).trim();
+    final displayText = (releaseDateText.isNotEmpty)
         ? 'Release On: $releaseDateText'
         : 'Release On: Coming Soon';
 
@@ -1950,7 +1976,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
         Text(
           "Cast and Crew",
           style: TextStyle(
-            color: Colors.white,
+            color: theme.canvasColor,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -2014,8 +2040,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 11, color: Colors.white),
+            style: TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 11, color: theme.canvasColor),
           ),
           if (role.isNotEmpty)
             Text(
@@ -2023,7 +2049,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: Colors.white),
+              style: TextStyle(fontSize: 10, color: theme.canvasColor.withOpacity(0.7)),
             ),
         ],
       ),
@@ -2078,7 +2104,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
       return Text(
         'N/A',
         style: TextStyle(
-          color: Colors.white.withOpacity(0.7),
+          color: theme.canvasColor.withOpacity(0.7),
           fontWeight: FontWeight.normal,
         ),
       );
@@ -2095,7 +2121,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           maxLines: _isDescriptionExpanded ? null : maxCollapsedLines,
           overflow: _isDescriptionExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.75),
+            color: theme.canvasColor.withOpacity(0.75),
             fontWeight: FontWeight.normal,
             fontSize: 14,
             height: 1.4,
@@ -2233,17 +2259,18 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
 
   Widget _buildDetailsSection(BuildContext context, Content movie) {
     final lang = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final languages = (movie.languageList ?? const [])
         .map((e) => e.language?.trim())
         .where((language) => language != null && language.isNotEmpty)
         .cast<String>()
         .join(', ');
-    TextStyle titleStyle = const TextStyle(
-      color: Colors.white,
+    TextStyle titleStyle = TextStyle(
+      color: theme.canvasColor,
       fontWeight: FontWeight.bold,
     );
-    TextStyle contentStyle = const TextStyle(
-      color: Colors.white70,
+    TextStyle contentStyle = TextStyle(
+      color: theme.canvasColor.withOpacity(0.7),
     );
 
     return Container(

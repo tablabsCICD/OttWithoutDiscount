@@ -98,6 +98,7 @@ class _MadiooPageState extends State<MadiooPage>
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w600,
+              color: theme.canvasColor,
             ),
           ),
 
@@ -109,7 +110,7 @@ class _MadiooPageState extends State<MadiooPage>
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 14,
-              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+              color: theme.canvasColor.withOpacity(0.6),
             ),
           ),
           const SizedBox(height: 60),

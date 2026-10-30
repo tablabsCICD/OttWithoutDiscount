@@ -7,9 +7,13 @@ class ThemeProvider extends BaseProvider {
   late ThemeData _selectedTheme;
   late SharedPreferences _prefs;
 
-  ThemeProvider({bool isDark = false}) {
+  ThemeProvider({bool isDark = false, SharedPreferences? prefs}) {
     _selectedTheme = isDark ? AppTheme.darkTheme : AppTheme.lightTheme;
-    _initPrefs();
+    if (prefs != null) {
+      _prefs = prefs;
+    } else {
+      _initPrefs();
+    }
   }
 
   Future<void> _initPrefs() async {
@@ -22,7 +26,10 @@ class ThemeProvider extends BaseProvider {
 
   Future<void> toggleTheme() async {
     _selectedTheme = isDark ? AppTheme.lightTheme : AppTheme.darkTheme;
-    await _prefs.setBool("isDark", isDark);
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      await _prefs.setBool("isDark", isDark);
+    } catch (_) {}
     notifyListeners();
   }
 }

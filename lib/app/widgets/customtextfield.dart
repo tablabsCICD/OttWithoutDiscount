@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ott/app/core/utils/text_capitalization_formatter.dart';
-import 'package:ott/app/provider/themeProvider.dart';
-import 'package:provider/provider.dart';
 import 'package:wc_form_validators/wc_form_validators.dart';
 
 export 'package:ott/app/core/utils/text_capitalization_formatter.dart';
@@ -72,8 +70,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
-    var selectedTheme =
-        Provider.of<ThemeProvider>(context, listen: false).getTheme;
+    var selectedTheme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(

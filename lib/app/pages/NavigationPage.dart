@@ -402,7 +402,7 @@ class _NavigationPageState extends State<NavigationPage> {
     VoidCallback? onTap,
   }) {
     final selectedThemeData =
-        Provider.of<ThemeProvider>(context, listen: false).getTheme;
+        Provider.of<ThemeProvider>(context).getTheme;
     final isSelected = index == _currentIndex &&
         (homeContentType == null || homeContentType == _homeContentType);
     void handleTap() {

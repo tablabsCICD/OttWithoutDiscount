@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ott/app/core/constant/api_constant.dart';
 import 'package:ott/app/core/network/api_helper.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
+import 'package:ott/app/core/utils/release_date_formatter.dart';
 import 'package:ott/app/widgets/content_share_sheet.dart';
 import 'package:ott/app/pages/watchlist%20page/component/DisplayTrailer.dart';
 import 'package:ott/app/pages/wallet%20page/MovieBillingPage.dart';
@@ -244,8 +245,22 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                       const SizedBox(height: 16),
                       _buildCastSection(context, season, theme),
                       const SizedBox(height: 16),
-                      ...season.episodes
-                          .map((e) => _episodeTile(context, season, e, theme)),
+                      if (season.episodes.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24.0),
+                          child: Center(
+                            child: Text(
+                              'No episodes available yet',
+                              style: TextStyle(
+                                color: theme.canvasColor.withOpacity(0.68),
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...season.episodes
+                            .map((e) => _episodeTile(context, season, e, theme)),
                       Divider(),
                       const SizedBox(height: 26),
                       _buildDetailsSection(context, widget.content, theme),
@@ -311,7 +326,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
         child: FocusTraversalGroup(
           policy: OrderedTraversalPolicy(),
           child: ColoredBox(
-            color: Colors.black,
+            color: theme.scaffoldBackgroundColor,
             child: CustomScrollView(
               controller: _tvScrollController,
               slivers: [
@@ -585,6 +600,9 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             final target = resume ?? firstPlayable;
             if (target != null) {
               _playEpisode(context, target.season, target.episode);
+            } else if (seasons.isNotEmpty && seasons.first.episodes.isNotEmpty) {
+              _purchaseEpisode(
+                  context, seasons.first, seasons.first.episodes.first);
             }
           },
         ),
@@ -715,12 +733,14 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               selectedColor: theme.primaryColor,
               backgroundColor: Colors.red.withOpacity(0.1),
               labelStyle: TextStyle(
-                color: selected ? Colors.white : Colors.white.withOpacity(0.82),
+                color: selected
+                    ? Colors.white
+                    : theme.canvasColor.withOpacity(0.82),
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              side: BorderSide(color: Colors.white.withOpacity(0.14)),
+              side: BorderSide(color: theme.canvasColor.withOpacity(0.14)),
               onSelected: (_) {
                 setState(() => _selectedSeasonIndex = index);
                 _loadSeasonCast(seasons[index].seasonId);
@@ -737,9 +757,16 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     SeasonEntity season,
     ThemeData theme,
   ) {
-    final hasPurchasedEpisode =
-        season.episodes.any((EpisodeEntity ep) => ep.isPurchased);
-    final canPurchaseSeason = !season.isSeasonPurchased && !hasPurchasedEpisode;
+    final isSeasonPurchased =
+        (widget.content.isRental == true) || season.isSeasonPurchased;
+    final effectiveSeasonPrice = season.price > 0
+        ? season.price.toDouble()
+        : (widget.content.price != null ? widget.content.price!.toDouble() : 0.0);
+    final canPurchaseSeason = !isSeasonPurchased && effectiveSeasonPrice > 0;
+    final priceLabel =
+        effectiveSeasonPrice.truncateToDouble() == effectiveSeasonPrice
+            ? effectiveSeasonPrice.toInt().toString()
+            : effectiveSeasonPrice.toStringAsFixed(2);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -752,8 +779,8 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                 'Season ${season.seasonNumber}: ${season.title}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: theme.canvasColor,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
@@ -764,7 +791,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.68),
+                  color: theme.canvasColor.withOpacity(0.68),
                   fontSize: 15,
                   height: 1.35,
                 ),
@@ -772,10 +799,12 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             ],
           ),
         ),
-        if (widget.content.isFeatured != true && canPurchaseSeason)
+        if (widget.content.isFeatured == true)
+          _buildReleaseDateHighlight(context, season)
+        else if (canPurchaseSeason)
           _tvActionButton(
             theme: theme,
-            label: 'Rent Season Rs ${season.price}',
+            label: 'Rent Season ₹$priceLabel',
             icon: Icons.lock_open_rounded,
             emphasized: true,
             onPressed: () => _purchaseSeason(context, season),
@@ -792,7 +821,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     if (season.episodes.isEmpty) {
       return Text(
         'No episodes available yet',
-        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
+        style: TextStyle(color: theme.canvasColor.withOpacity(0.7), fontSize: 16),
       );
     }
 
@@ -820,8 +849,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     EpisodeEntity episode,
     ThemeData theme,
   ) {
+    final isSeasonPurchased =
+        (widget.content.isRental == true) || season.isSeasonPurchased;
     final canPlay =
-        season.isSeasonPurchased || episode.isPurchased || episode.isFree;
+        isSeasonPurchased || episode.isPurchased || episode.isFree;
     final progress = _episodeProgress(context, season, episode);
     final hasProgress = progress > 0.02;
 
@@ -837,9 +868,9 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
       child: Container(
         width: 360,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.075),
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: theme.canvasColor.withOpacity(0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,8 +950,8 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                           episode.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.canvasColor,
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                           ),
@@ -929,7 +960,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                       Text(
                         '${episode.runtime} min',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.65),
+                          color: theme.canvasColor.withOpacity(0.65),
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -944,7 +975,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                     style: TextStyle(
                       color: hasProgress
                           ? theme.primaryColor
-                          : Colors.white.withOpacity(0.62),
+                          : theme.canvasColor.withOpacity(0.62),
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
@@ -955,7 +986,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.64),
+                      color: theme.canvasColor.withOpacity(0.64),
                       height: 1.25,
                     ),
                   ),
@@ -1068,8 +1099,8 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               content.title ?? 'Untitled',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: theme.canvasColor,
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
@@ -1083,7 +1114,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               ].whereType<String>().join('  |  '),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white.withOpacity(0.58)),
+              style: TextStyle(color: theme.canvasColor.withOpacity(0.58)),
             ),
           ],
         ),
@@ -1132,9 +1163,11 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
   }
 
   _ResumeEpisode? _firstPlayableEpisode(List<SeasonEntity> seasons) {
+    final isSeriesPurchased = widget.content.isRental == true;
     for (final season in seasons) {
+      final isSeasonPurchased = isSeriesPurchased || season.isSeasonPurchased;
       for (final episode in season.episodes) {
-        if (season.isSeasonPurchased || episode.isPurchased || episode.isFree) {
+        if (isSeasonPurchased || episode.isPurchased || episode.isFree) {
           return _ResumeEpisode(season, episode);
         }
       }
@@ -1185,19 +1218,30 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     SeasonEntity season,
     EpisodeEntity episode,
   ) async {
+    final videoUrl = episode.videoUrl?.trim();
+    if (videoUrl == null || videoUrl.isEmpty) {
+      CustomToast.show(
+        context,
+        "Episode video is not available at the moment.",
+        isSuccess: false,
+      );
+      return;
+    }
     _stopHeroTrailer();
     await _trailerController.disposePlayer?.call();
     await _teaserController.disposePlayer?.call();
     if (!context.mounted) return;
+    final allSeasons =
+        context.read<SeriesProvider>().series?.seasons ?? [season];
     final shouldRefresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => PlayMediaPage(
-          videoUrl: episode.videoUrl ?? "",
+          videoUrl: videoUrl,
           content: widget.content,
           seasonIndex: season.seasonId,
           episodeIndex: episode.episodeId,
-          seasons: [season],
+          seasons: allSeasons,
         ),
       ),
     );
@@ -1228,9 +1272,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
       ),
     );
 
-    if (result == true && mounted) {
-      CustomToast.show(context, "Episode unlocked! Enjoy watching",
+    if (result == true && context.mounted) {
+      CustomToast.show(context, "Episode unlocked! Enjoy watching 🎬",
           isSuccess: true);
+      await context.read<SeriesProvider>().fetchSeriesDetails(widget.seriesId);
     }
   }
 
@@ -1239,13 +1284,18 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     SeasonEntity season,
   ) async {
     _stopHeroTrailer();
+    final effectivePrice = season.price > 0
+        ? season.price.toDouble()
+        : (widget.content.price != null
+            ? widget.content.price!.toDouble()
+            : 0.0);
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => SeriesBillingPage(
           seriesId: widget.seriesId,
           seasonId: season.seasonId,
-          amount: season.price.toDouble(),
+          amount: effectivePrice,
           isSeason: true,
           seriesTitle: widget.content.title,
           itemTitle: season.title,
@@ -1254,9 +1304,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
       ),
     );
 
-    if (result == true && mounted) {
-      CustomToast.show(context, "Season unlocked! Enjoy watching",
+    if (result == true && context.mounted) {
+      CustomToast.show(context, "Season unlocked! Enjoy watching 🎬",
           isSuccess: true);
+      await context.read<SeriesProvider>().fetchSeriesDetails(widget.seriesId);
     }
   }
 
@@ -1378,7 +1429,18 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
   }
 
   String _releaseYearText(dynamic releaseDate) {
-    final text = releaseDate?.toString().trim() ?? '';
+    if (releaseDate == null) return '';
+    if (releaseDate is DateTime) return releaseDate.year.toString();
+    final numeric = releaseDate is int
+        ? releaseDate
+        : int.tryParse(releaseDate.toString().trim());
+    if (numeric != null && numeric > 1000000000) {
+      final dt = numeric > 100000000000
+          ? DateTime.fromMillisecondsSinceEpoch(numeric)
+          : DateTime.fromMillisecondsSinceEpoch(numeric * 1000);
+      return dt.year.toString();
+    }
+    final text = releaseDate.toString().trim();
     if (text.length >= 4) return text.substring(0, 4);
     return text;
   }
@@ -1398,8 +1460,8 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               ? 420
               : 560,
       forceMaterialTransparency: true,
-      backgroundColor: Colors.black,
-      foregroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      foregroundColor: theme.canvasColor,
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
           fit: StackFit.expand,
@@ -1413,15 +1475,21 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
 
             /// 🌗 Gradient overlay
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black87,
-                    Colors.black87,
-                    Colors.black,
-                  ],
+                  colors: theme.brightness == Brightness.dark
+                      ? const [
+                          Colors.black87,
+                          Colors.black87,
+                          Colors.black,
+                        ]
+                      : [
+                          Colors.black54,
+                          theme.scaffoldBackgroundColor.withOpacity(0.7),
+                          theme.scaffoldBackgroundColor,
+                        ],
                 ),
               ),
             ),
@@ -1727,10 +1795,20 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
 
   // ---------------- SEASON INFO ----------------
 
-  Widget _buildSeasonInfo(BuildContext context, season, ThemeData theme) {
-    final hasPurchasedEpisode =
-        season.episodes.any((EpisodeEntity ep) => ep.isPurchased);
-    final canPurchaseSeason = !season.isSeasonPurchased && !hasPurchasedEpisode;
+  Widget _buildSeasonInfo(
+      BuildContext context, SeasonEntity season, ThemeData theme) {
+    final isSeasonPurchased =
+        (widget.content.isRental == true) || season.isSeasonPurchased;
+    final effectiveSeasonPrice = season.price > 0
+        ? season.price.toDouble()
+        : (widget.content.price != null
+            ? widget.content.price!.toDouble()
+            : 0.0);
+    final canPurchaseSeason = !isSeasonPurchased && effectiveSeasonPrice > 0;
+    final priceLabel =
+        effectiveSeasonPrice.truncateToDouble() == effectiveSeasonPrice
+            ? effectiveSeasonPrice.toInt().toString()
+            : effectiveSeasonPrice.toStringAsFixed(2);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1759,56 +1837,31 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               const SizedBox(height: 6),
               widget.content.isFeatured == true
                   ? _buildReleaseDateHighlight(context, season)
-                  : !season.isSeasonPurchased && canPurchaseSeason
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: theme.primaryColor,
-                                disabledBackgroundColor:
-                                    theme.canvasColor.withOpacity(0.2),
-                                disabledForegroundColor:
-                                    theme.canvasColor.withOpacity(0.6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                  : canPurchaseSeason
+                      ? Center(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.primaryColor,
+                              disabledBackgroundColor:
+                                  theme.canvasColor.withOpacity(0.2),
+                              disabledForegroundColor:
+                                  theme.canvasColor.withOpacity(0.6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              onPressed: () async {
-                                _trailerController.pause?.call();
-                                final result = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => SeriesBillingPage(
-                                      seriesId: widget.seriesId,
-                                      seasonId: season.seasonId,
-                                      amount: season.price.toDouble(),
-                                      isSeason: true,
-                                      seriesTitle: widget.content.title,
-                                      itemTitle: season.title,
-                                      rentalDuration:
-                                          widget.content.rentlDuration,
-                                    ),
-                                  ),
-                                );
-
-                                if (result == true && mounted) {
-                                  CustomToast.show(
-                                    context,
-                                    "Season unlocked! Enjoy watching 🎬",
-                                    isSuccess: true,
-                                  );
-                                }
-                              },
+                            ),
+                            onPressed: () => _purchaseSeason(context, season),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
                               child: Text(
-                                "Rent complete Season ₹${season.price}",
-                                style: TextStyle(
+                                "Rent complete Season ₹$priceLabel",
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         )
                       : const SizedBox()
               //: SizedBox(),
@@ -1821,12 +1874,23 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
 
   Widget _buildReleaseDateHighlight(
     BuildContext context,
-    Content content, {
+    dynamic item, {
     bool centered = false,
   }) {
     final theme = Theme.of(context);
-    final releaseDateText = content.releaseDate?.toString().trim();
-    final displayText = (releaseDateText != null && releaseDateText.isNotEmpty)
+    dynamic rawDate;
+    if (item is SeasonEntity) {
+      rawDate = item.releaseDate > 0
+          ? item.releaseDate
+          : widget.content.releaseDate;
+    } else if (item is Content) {
+      rawDate = item.releaseDate;
+    } else {
+      rawDate = item ?? widget.content.releaseDate;
+    }
+
+    final releaseDateText = formatReleaseDate(rawDate).trim();
+    final displayText = (releaseDateText.isNotEmpty)
         ? 'Release On: $releaseDateText'
         : 'Release On: Coming Soon';
 
@@ -1999,9 +2063,11 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     EpisodeEntity ep,
     ThemeData theme,
   ) {
-    final canPlay = season.isSeasonPurchased || ep.isPurchased || ep.isFree;
+    final isSeasonPurchased =
+        (widget.content.isRental == true) || season.isSeasonPurchased;
+    final canPlay = isSeasonPurchased || ep.isPurchased || ep.isFree;
     final resumeSeconds = context.watch<PlayMediaProvider>().getLocalResume(
-          contentId: widget.content.id!,
+          contentId: widget.content.id ?? widget.seriesId,
           seasonId: season.seasonId,
           episodeId: ep.episodeId,
         );
@@ -2011,29 +2077,11 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
         : 0.0;
 
     return GestureDetector(
-      onTap: () async {
-        if (!canPlay) return;
-
-        await _trailerController.disposePlayer?.call();
-        await _teaserController.disposePlayer?.call();
-        if (!context.mounted) return;
-        final shouldRefresh = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PlayMediaPage(
-              videoUrl: ep.videoUrl ?? "",
-              content: widget.content,
-              seasonIndex: season.seasonId,
-              episodeIndex: ep.episodeId,
-              seasons: [season],
-            ),
-          ),
-        );
-
-        if (shouldRefresh == true && context.mounted) {
-          context
-              .read<DashboardProvider>()
-              .getContinueWatchedMovieList("SERIES");
+      onTap: () {
+        if (canPlay) {
+          _playEpisode(context, season, ep);
+        } else {
+          _purchaseEpisode(context, season, ep);
         }
       },
       child: Container(
@@ -2142,31 +2190,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onPressed: () async {
-                          _trailerController.pause?.call();
-                          final result = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SeriesBillingPage(
-                                seriesId: widget.seriesId,
-                                episodeId: ep.episodeId,
-                                amount: ep.price.toDouble(),
-                                isSeason: false,
-                                seriesTitle: widget.content.title,
-                                itemTitle: ep.title,
-                                rentalDuration: widget.content.rentlDuration,
-                              ),
-                            ),
-                          );
-
-                          if (result == true && mounted) {
-                            CustomToast.show(
-                              context,
-                              "Episode unlocked! Enjoy watching 🎬",
-                              isSuccess: true,
-                            );
-                          }
-                        },
+                        onPressed: () => _purchaseEpisode(context, season, ep),
                         child: Text(
                           "₹${ep.price}",
                           style: const TextStyle(
@@ -2237,8 +2261,29 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               contentStyle),
           _buildTableRow(lang.runtime, "${movie.runtime ?? 0} min", titleStyle,
               contentStyle),
-          _buildTableRow(lang.price, movie.price?.toString() ?? 'N/A',
-              titleStyle, contentStyle),
+          () {
+            final seasons = context.read<SeriesProvider>().series?.seasons;
+            final selectedSeason = (seasons != null &&
+                    _selectedSeasonIndex < seasons.length)
+                ? seasons[_selectedSeasonIndex]
+                : (seasons != null && seasons.isNotEmpty ? seasons.first : null);
+            final double? seasonPrice = selectedSeason?.price != null &&
+                    selectedSeason!.price > 0
+                ? selectedSeason.price.toDouble()
+                : null;
+            final num? effectivePrice =
+                (movie.price != null && movie.price! > 0)
+                    ? movie.price
+                    : seasonPrice;
+            final String priceString = effectivePrice != null &&
+                    effectivePrice > 0
+                ? '₹${effectivePrice.toStringAsFixed(effectivePrice.truncateToDouble() == effectivePrice ? 0 : 2)}'
+                : (movie.price != null && movie.price! > 0
+                    ? '₹${movie.price}'
+                    : (movie.price?.toString() ?? 'N/A'));
+            return _buildTableRow(
+                lang.price, priceString, titleStyle, contentStyle);
+          }(),
           _buildTableRow(
               lang.rentDuration,
               movie.rentlDuration?.toString() ?? 'N/A',
@@ -2249,11 +2294,16 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               movie.mediaHouseName?.toString() ?? 'N/A',
               titleStyle,
               contentStyle),
-          _buildTableRow(lang.releaseDate, movie.releaseDate ?? 'N/A',
-              titleStyle, contentStyle),
+          _buildTableRow(
+              lang.releaseDate,
+              formatReleaseDate(movie.releaseDate).isNotEmpty
+                  ? formatReleaseDate(movie.releaseDate)
+                  : (movie.releaseDate?.toString() ?? 'N/A'),
+              titleStyle,
+              contentStyle),
           _buildTableRow(
               lang.languages,
-              (movie.languageList!.map((e) => e.language)).join(', '),
+              (movie.languageList?.map((e) => e.language) ?? []).join(', '),
               titleStyle,
               contentStyle),
           _buildTableRow(
@@ -2596,7 +2646,6 @@ class _TvFocusableScaleState extends State<_TvFocusableScale> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return FocusableActionDetector(
       enabled: widget.onPressed != null,
       mouseCursor: widget.onPressed == null

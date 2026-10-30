@@ -558,7 +558,7 @@ class _HomePageState extends State<HomePage>
     var selectedThemeData = themeProvider.getTheme;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: selectedThemeData.scaffoldBackgroundColor,
       body: isLoading
           ? HomeShimmer()
           : CustomScrollView(
@@ -578,7 +578,7 @@ class _HomePageState extends State<HomePage>
                         children: [
                           if (!widget.lockContentType)
                             Container(
-                              color: Colors.black,
+                              color: selectedThemeData.scaffoldBackgroundColor,
                               width: double.infinity,
                               padding:
                                   const EdgeInsets.symmetric(vertical: 8.0),
@@ -757,7 +757,7 @@ class _HomePageState extends State<HomePage>
                                                                                 style: GoogleFonts.inter(
                                                                                   fontSize: ResponsiveWidget.isMobile(context) ? 18 : 20,
                                                                                   fontWeight: FontWeight.bold,
-                                                                                  color: Colors.white,
+                                                                                  color: selectedThemeData.canvasColor,
                                                                                 ),
                                                                               ),
                                                                             ),
@@ -1444,6 +1444,7 @@ class _HomePageState extends State<HomePage>
   Widget _buildFilterButtons(
       BuildContext context, DashboardProvider dashboardProvider) {
     final lang = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
       child: Row(
@@ -1482,12 +1483,12 @@ class _HomePageState extends State<HomePage>
                 duration: const Duration(milliseconds: 180),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFFE50914)
-                      : const Color(0xFF141418),
+                      ? theme.primaryColor
+                      : theme.cardColor,
                   border: Border.all(
                     color: isSelected
-                        ? const Color(0xFFE50914)
-                        : const Color(0xFF26262E),
+                        ? theme.primaryColor
+                        : theme.dividerColor.withOpacity(0.2),
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -1501,7 +1502,9 @@ class _HomePageState extends State<HomePage>
                           ? lang.series
                           : ContentType.displayLabel(type),
                   style: GoogleFonts.inter(
-                    color: Colors.white,
+                    color: isSelected
+                        ? Colors.white
+                        : theme.canvasColor,
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                   ),

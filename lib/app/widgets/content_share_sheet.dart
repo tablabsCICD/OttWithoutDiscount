@@ -182,13 +182,13 @@ class _ContentShareSheetBody extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          const Text(
+          Text(
             "Scan to watch on Filmytell",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.white70,
+              color: selectedThemeData.canvasColor.withValues(alpha: 0.7),
             ),
           ),
 
@@ -198,7 +198,9 @@ class _ContentShareSheetBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: selectedThemeData.brightness == Brightness.dark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
             child: SelectableText(
