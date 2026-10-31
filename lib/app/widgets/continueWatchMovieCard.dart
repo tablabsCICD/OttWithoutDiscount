@@ -1,8 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ott/app/core/constant/api_constant.dart';
+import 'package:ott/app/core/network/api_helper.dart';
+import 'package:ott/data/models/response/SeriesDetailsResponse.dart';
+import 'package:ott/data/models/seriesModel.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
@@ -467,9 +473,12 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lang = AppLocalizations.of(context)!;
-    final posterUrl = widget.movie.posterUrlList?.isNotEmpty == true
-        ? widget.movie.posterUrlList!.first
-        : null;
+    final posterUrl = (widget.movie.episodePosterUrl != null &&
+            widget.movie.episodePosterUrl!.trim().isNotEmpty)
+        ? widget.movie.episodePosterUrl!.trim()
+        : (widget.movie.posterUrlList?.isNotEmpty == true
+            ? widget.movie.posterUrlList!.first
+            : null);
     final showPreview = _isPreviewPlaying;
     final cardWidth = ContinueWatchMovieCard.cardWidthFor(context);
     final highlightColor = theme.brightness == Brightness.light
@@ -639,7 +648,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
 
   Widget _buildContentSection(ThemeData theme, AppLocalizations lang) {
     final movie = widget.movie;
-    final title = movie.title ?? 'No Title';
+    final title = movie.displayTitle.isNotEmpty ? movie.displayTitle : 'No Title';
     final percentage = movie.watchedPercentage;
     final rating = movie.ratings ?? 0.0;
     final price = movie.price ?? 0;
@@ -844,6 +853,114 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
     final movie = widget.movie;
     if (movie.id == null) return;
 
+    final isSeries =
+        ContentType.isSeries(movie.type) || movie.episodeId != null;
+    if (isSeries) {
+      final seriesId = movie.seriesId ?? movie.id!;
+      final user = await LocalSharePreferences.localSharePreferences.getUser();
+      final apiUrl = ApiConstant.seriesDetails(seriesId, user?.id ?? 1);
+      final apiHelper = ApiHelper();
+
+      List<SeasonEntity> allSeasons = [];
+      EpisodeEntity? targetEpisode;
+      SeasonEntity? targetSeason;
+
+      try {
+        final response = await apiHelper.getApi(apiUrl);
+        if (response.statusCode == 200) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          final data = SeriesDetailsResponse.fromJson(json);
+          final entity = data.toEntity();
+          allSeasons = entity.seasons;
+
+          final targetEpId = movie.episodeId;
+          final targetSeasonId = movie.seasonId;
+
+          for (final season in allSeasons) {
+            if (targetSeasonId == null || season.seasonId == targetSeasonId) {
+              for (final ep in season.episodes) {
+                if (targetEpId == null || ep.episodeId == targetEpId) {
+                  targetSeason = season;
+                  targetEpisode = ep;
+                  break;
+                }
+              }
+            }
+            if (targetEpisode != null) break;
+          }
+
+          if (targetEpisode == null && allSeasons.isNotEmpty) {
+            for (final season in allSeasons) {
+              for (final ep in season.episodes) {
+                if (ep.episodeId == targetEpId) {
+                  targetSeason = season;
+                  targetEpisode = ep;
+                  break;
+                }
+              }
+              if (targetEpisode != null) break;
+            }
+          }
+
+          if (targetEpisode == null &&
+              allSeasons.isNotEmpty &&
+              allSeasons.first.episodes.isNotEmpty) {
+            targetSeason = allSeasons.first;
+            targetEpisode = allSeasons.first.episodes.first;
+          }
+        }
+      } catch (e) {
+        log('Error fetching series details for continue watching card: $e');
+      }
+
+      if (!mounted) return;
+
+      final videoUrl =
+          targetEpisode?.videoUrl?.trim() ?? movie.contentUrl?.trim();
+      if (videoUrl == null || videoUrl.isEmpty) {
+        CustomToast.show(
+          context,
+          "Episode video is not available at the moment.",
+          isSuccess: false,
+        );
+        return;
+      }
+
+      final contentToPlay = movie.copyWith(
+        id: seriesId,
+        title: targetEpisode?.title ?? movie.episodeTitle ?? movie.title,
+        seasonId: targetSeason?.seasonId ?? movie.seasonId,
+        episodeId: targetEpisode?.episodeId ?? movie.episodeId,
+        episodeTitle: targetEpisode?.title ?? movie.episodeTitle,
+        episodeNumber: targetEpisode?.episodeNumber ?? movie.episodeNumber,
+        seasonNumber: targetSeason?.seasonNumber ?? movie.seasonNumber,
+        episodePosterUrl: targetEpisode?.posterUrl ?? movie.episodePosterUrl,
+        contentUrl: videoUrl,
+      );
+
+      await _disposePreviewBeforeSecurePlayback();
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayMediaPage(
+            videoUrl: videoUrl,
+            content: contentToPlay,
+            seasonIndex: contentToPlay.seasonId ?? 0,
+            episodeIndex: contentToPlay.episodeId ?? 0,
+            seasons: allSeasons,
+          ),
+        ),
+      ).then((_) {
+        if (!mounted) return;
+        context
+            .read<DashboardProvider>()
+            .getContinueWatchedMovieList("SERIES");
+      });
+      return;
+    }
+
     Content contentToPlay = movie;
     var contentUrl = contentToPlay.contentUrl;
 
@@ -862,36 +979,14 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
       }
     }
 
+    if (!mounted) return;
+
     if (contentUrl == null || contentUrl.trim().isEmpty) {
       CustomToast.show(
         context,
         "Video is not available",
         isSuccess: false,
       );
-      return;
-    }
-
-    final isSeries = ContentType.isSeries(contentToPlay.type);
-    final episodeId = contentToPlay.episodeId ?? movie.episodeId;
-    final seasonId = contentToPlay.seasonId ?? movie.seasonId;
-
-    if (isSeries && (episodeId == null || episodeId <= 0)) {
-      await _disposePreviewBeforeSecurePlayback();
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SeriesDetailsPage(
-            seriesId: contentToPlay.id ?? movie.id!,
-            content: contentToPlay,
-          ),
-        ),
-      ).then((_) {
-        if (!mounted) return;
-        context
-            .read<DashboardProvider>()
-            .getContinueWatchedMovieList("SERIES");
-      });
       return;
     }
 
@@ -903,9 +998,9 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
         builder: (_) => PlayMediaPage(
           videoUrl: contentUrl!,
           content: contentToPlay,
-          seasonIndex: seasonId,
-          episodeIndex: episodeId,
-          seasons: isSeries ? [] : null,
+          seasonIndex: contentToPlay.seasonId ?? 0,
+          episodeIndex: contentToPlay.episodeId ?? 0,
+          seasons: null,
         ),
       ),
     ).then((_) {

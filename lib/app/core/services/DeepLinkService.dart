@@ -137,6 +137,10 @@ class DeepLinkService {
 
   bool get hasPendingNavigation => _pendingTarget != null;
 
+  DeepLinkTarget? get pendingTarget => _pendingTarget;
+
+  DeepLinkTarget? get lastProcessedTarget => _lastProcessedTarget;
+
   bool get supportsUniversalLinks => true;
 
   Future<void> init() async {
@@ -175,11 +179,22 @@ class DeepLinkService {
     if (_pendingTarget == null) {
       final persisted = await getPendingDeepLinkTarget();
       if (persisted != null) {
-        _pendingTarget = persisted;
-        developer.log(
-          'Restored persisted pending target on init: $persisted',
-          name: 'DeepLinkService',
-        );
+        if (persisted.type == DeepLinkContentType.gift &&
+            persisted.couponCode != null &&
+            await GiftDeepLinkService.instance
+                .isGiftCodeClaimed(persisted.couponCode!)) {
+          developer.log(
+            'Persisted pending gift deep link ${persisted.couponCode} is already claimed. Clearing.',
+            name: 'DeepLinkService',
+          );
+          await clearPendingDeepLinkTarget();
+        } else {
+          _pendingTarget = persisted;
+          developer.log(
+            'Restored persisted pending target on init: $persisted',
+            name: 'DeepLinkService',
+          );
+        }
       }
     }
 
@@ -704,6 +719,29 @@ class DeepLinkService {
       name: 'DeepLinkService',
     );
 
+    if (target?.type == DeepLinkContentType.gift && target?.couponCode != null) {
+      final coupon = target!.couponCode!;
+      if (await GiftDeepLinkService.instance.isGiftCodeClaimed(coupon)) {
+        developer.log(
+          'Gift deep link code $coupon is already claimed. Skipping duplicate presentation.',
+          name: 'DeepLinkService',
+        );
+        await GiftDeepLinkService.instance.clearPendingGiftCode();
+        return false;
+      }
+
+      if (source == 'initial_uri' &&
+          await GiftDeepLinkService.instance.isGiftUriProcessed(uri)) {
+        developer.log(
+          'Gift deep link URI $uri was already processed on a previous launch. Skipping duplicate launch trigger.',
+          name: 'DeepLinkService',
+        );
+        return false;
+      }
+
+      await GiftDeepLinkService.instance.markGiftUriProcessed(uri);
+    }
+
     if (target == null) {
       if (capturedReferralCode != null) {
         developer.log(
@@ -826,7 +864,10 @@ class DeepLinkService {
     navigator.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: AppRoutes.login),
-        builder: (_) => const LoginCard(),
+        builder: (_) => LoginCard(
+          initialReferralCode: referralCode,
+          isReferralFlow: true,
+        ),
       ),
     );
   }
@@ -839,6 +880,15 @@ class DeepLinkService {
       'Navigation Triggered: opening gift claim for code=$couponCode',
       name: 'DeepLinkService',
     );
+    if (await GiftDeepLinkService.instance.isGiftCodeClaimed(couponCode)) {
+      developer.log(
+        'Gift code $couponCode is already claimed. Skipping dialog presentation.',
+        name: 'DeepLinkService',
+      );
+      await GiftDeepLinkService.instance.clearPendingGiftCode();
+      return;
+    }
+    if (!navigator.mounted) return;
     await GiftDeepLinkService.instance.showGiftDialogForCode(
       navigator.context,
       couponCode,

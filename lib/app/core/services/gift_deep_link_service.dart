@@ -214,6 +214,14 @@ class GiftDeepLinkService {
   Future<String?> captureFromUri(Uri? uri) async {
     final code = extractGiftCodeFromUri(uri);
     if (code != null) {
+      if (await isGiftCodeClaimed(code)) {
+        developer.log(
+          'Gift code $code from URI is already claimed. Skipping capture.',
+          name: 'GiftDeepLinkService',
+        );
+        await clearPendingGiftCode();
+        return null;
+      }
       await savePendingGiftCode(code);
       developer.log(
         'Captured valid gift code from URI: $code',
@@ -221,7 +229,12 @@ class GiftDeepLinkService {
       );
       return code;
     }
-    return getPendingGiftCode();
+    final existing = await getPendingGiftCode();
+    if (existing != null && await isGiftCodeClaimed(existing)) {
+      await clearPendingGiftCode();
+      return null;
+    }
+    return existing;
   }
 
   /// Persists a pending gift code to [SharedPreferences].
@@ -278,6 +291,134 @@ class GiftDeepLinkService {
     }
   }
 
+  /// Checks whether [code] has already been claimed on this device.
+  Future<bool> isGiftCodeClaimed(String? code) async {
+    final normalized = normalizeGiftCode(code);
+    if (normalized == null) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final claimedList = prefs.getStringList(
+            SharedPreferencesConstant.claimedGiftCodes,
+          ) ??
+          const <String>[];
+      return claimedList.contains(normalized);
+    } catch (e) {
+      developer.log(
+        'Failed to check claimed gift codes: $e',
+        name: 'GiftDeepLinkService',
+      );
+      return false;
+    }
+  }
+
+  /// Marks [code] as claimed so the popup is never shown again for it.
+  Future<void> markGiftCodeClaimed(String? code) async {
+    final normalized = normalizeGiftCode(code);
+    if (normalized == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final claimedList = (prefs.getStringList(
+                SharedPreferencesConstant.claimedGiftCodes,
+              ) ??
+              <String>[])
+          .toList();
+      if (!claimedList.contains(normalized)) {
+        claimedList.add(normalized);
+        await prefs.setStringList(
+          SharedPreferencesConstant.claimedGiftCodes,
+          claimedList,
+        );
+      }
+      developer.log(
+        'Marked gift code as claimed: $normalized',
+        name: 'GiftDeepLinkService',
+      );
+    } catch (e) {
+      developer.log(
+        'Failed to mark gift code as claimed: $e',
+        name: 'GiftDeepLinkService',
+      );
+    }
+  }
+
+  /// Unmarks [code] as claimed (useful for testing or error recovery).
+  Future<void> unmarkGiftCodeClaimed(String? code) async {
+    final normalized = normalizeGiftCode(code);
+    if (normalized == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final claimedList = (prefs.getStringList(
+                SharedPreferencesConstant.claimedGiftCodes,
+              ) ??
+              <String>[])
+          .toList();
+      if (claimedList.contains(normalized)) {
+        claimedList.remove(normalized);
+        await prefs.setStringList(
+          SharedPreferencesConstant.claimedGiftCodes,
+          claimedList,
+        );
+      }
+    } catch (e) {
+      developer.log(
+        'Failed to unmark gift code as claimed: $e',
+        name: 'GiftDeepLinkService',
+      );
+    }
+  }
+
+  /// Checks whether [uri] has already been processed on launch.
+  Future<bool> isGiftUriProcessed(Uri? uri) async {
+    if (uri == null) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastProcessed = prefs.getString(
+        SharedPreferencesConstant.lastProcessedGiftUri,
+      );
+      return lastProcessed != null && lastProcessed == uri.toString();
+    } catch (e) {
+      developer.log(
+        'Failed to check processed gift uri: $e',
+        name: 'GiftDeepLinkService',
+      );
+      return false;
+    }
+  }
+
+  /// Marks [uri] as processed on launch.
+  Future<void> markGiftUriProcessed(Uri? uri) async {
+    if (uri == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        SharedPreferencesConstant.lastProcessedGiftUri,
+        uri.toString(),
+      );
+      developer.log(
+        'Marked gift URI as processed: $uri',
+        name: 'GiftDeepLinkService',
+      );
+    } catch (e) {
+      developer.log(
+        'Failed to mark gift URI as processed: $e',
+        name: 'GiftDeepLinkService',
+      );
+    }
+  }
+
+  /// Clears the last processed gift URI.
+  Future<void> clearProcessedGiftUri() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(SharedPreferencesConstant.lastProcessedGiftUri);
+    } catch (e) {
+      developer.log(
+        'Failed to clear processed gift uri: $e',
+        name: 'GiftDeepLinkService',
+      );
+    }
+  }
+
   /// Checks for deferred install deep links on cold start / first launch.
   /// On Android: Queries Google Play Install Referrer API.
   /// On iOS: Checks clipboard for gift URL or code (copied via web fallback flow).
@@ -296,7 +437,11 @@ class GiftDeepLinkService {
       // Existing pending code takes precedence if already set
       final existingCode = await getPendingGiftCode();
       if (existingCode != null) {
-        return existingCode;
+        if (await isGiftCodeClaimed(existingCode)) {
+          await clearPendingGiftCode();
+        } else {
+          return existingCode;
+        }
       }
 
       if (hasChecked) {
@@ -320,6 +465,13 @@ class GiftDeepLinkService {
           if (rawReferrer != null && rawReferrer.trim().isNotEmpty) {
             final code = extractGiftCodeFromString(rawReferrer);
             if (code != null) {
+              if (await isGiftCodeClaimed(code)) {
+                developer.log(
+                  'Recovered deferred gift code $code is already claimed. Skipping.',
+                  name: 'GiftDeepLinkService',
+                );
+                return null;
+              }
               await savePendingGiftCode(code);
               developer.log(
                 'Recovered deferred gift code from Play Store: $code',
@@ -344,6 +496,13 @@ class GiftDeepLinkService {
           if (text != null && text.isNotEmpty) {
             final code = extractGiftCodeFromString(text);
             if (code != null) {
+              if (await isGiftCodeClaimed(code)) {
+                developer.log(
+                  'Recovered deferred gift code $code is already claimed. Skipping.',
+                  name: 'GiftDeepLinkService',
+                );
+                return null;
+              }
               await savePendingGiftCode(code);
               developer.log(
                 'Recovered deferred gift code on iOS first launch: $code',
@@ -366,14 +525,31 @@ class GiftDeepLinkService {
       );
     }
 
-    return getPendingGiftCode();
+    final finalPending = await getPendingGiftCode();
+    if (finalPending != null && await isGiftCodeClaimed(finalPending)) {
+      await clearPendingGiftCode();
+      return null;
+    }
+    return finalPending;
   }
 
   /// Checks if there is a pending gift code and navigation/auth is ready,
   /// then displays the existing gift popup.
   Future<bool> checkAndProcessPendingGift(BuildContext context) async {
+    if (_isDialogShowing) return false;
+
     final pendingCode = await getPendingGiftCode();
     if (pendingCode == null) return false;
+
+    if (await isGiftCodeClaimed(pendingCode)) {
+      developer.log(
+        'Pending gift code $pendingCode is already claimed. Clearing.',
+        name: 'GiftDeepLinkService',
+      );
+      await clearPendingGiftCode();
+      return false;
+    }
+
     if (!context.mounted) return false;
 
     return showGiftDialogForCode(context, pendingCode);
@@ -385,13 +561,24 @@ class GiftDeepLinkService {
   /// 2. User authentication status is checked:
   ///    - If authenticated: opens [showGiftClaimDialog].
   ///    - If unauthenticated: preserves code and navigates to [LoginCard].
-  /// 3. Upon successful redemption, clears [pendingGiftCode].
+  /// 3. Upon successful redemption, marks code as claimed and clears [pendingGiftCode].
+  /// 4. Upon dismissal without redemption, clears the pending launch buffer so it does not
+  ///    re-trigger repeatedly on subsequent app opens or widget rebuilds.
   Future<bool> showGiftDialogForCode(
     BuildContext context,
     String couponCode,
   ) async {
     final normalized = normalizeGiftCode(couponCode);
     if (normalized == null) return false;
+
+    if (await isGiftCodeClaimed(normalized)) {
+      developer.log(
+        'Gift code $normalized is already claimed. Skipping popup.',
+        name: 'GiftDeepLinkService',
+      );
+      await clearPendingGiftCode();
+      return false;
+    }
 
     // Prevent duplicate display
     if (_isDialogShowing) {
@@ -434,7 +621,12 @@ class GiftDeepLinkService {
         );
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const LoginCard()),
+          MaterialPageRoute(
+            builder: (_) => LoginCard(
+              initialGiftCode: normalized,
+              isGiftFlow: true,
+            ),
+          ),
         );
       }
       return false;
@@ -457,16 +649,25 @@ class GiftDeepLinkService {
         initialCouponCode: normalized,
       );
 
-      // If user successfully claimed the gift, clear the pending code
+      // If user successfully claimed the gift, mark as claimed and clear pending state
       if (result == true) {
         developer.log(
-          'Gift claimed successfully for code $normalized. Clearing pending state.',
+          'Gift claimed successfully for code $normalized. Marking claimed and clearing pending state.',
           name: 'GiftDeepLinkService',
         );
+        await markGiftCodeClaimed(normalized);
         await clearPendingGiftCode();
         return true;
       }
 
+      // If dismissed or cancelled without claiming:
+      // The gift remains unclaimed, but clear the temporary launch buffer
+      // so regular app launches or widget rebuilds do not reopen the popup.
+      developer.log(
+        'Gift dialog closed without claim for code $normalized. Clearing pending launch buffer.',
+        name: 'GiftDeepLinkService',
+      );
+      await clearPendingGiftCode();
       return false;
     } finally {
       _isDialogShowing = false;

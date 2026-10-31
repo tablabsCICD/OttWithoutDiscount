@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
+import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/app/core/utils/sharepreferences.dart';
 import 'package:ott/data/models/cast_member.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:ott/data/models/response/continueWatchedResponse.dart';
 import 'package:ott/data/models/response/getContentResponse.dart';
+import 'package:ott/data/models/response/SeriesDetailsResponse.dart';
+import 'package:ott/data/models/seriesModel.dart';
 import 'package:ott/data/models/user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/response/get_dashboard_data.dart';
 import '../core/constant/api_constant.dart';
 import '../core/network/api_helper.dart';
@@ -316,10 +320,136 @@ class DashboardProvider extends BaseProvider {
         if (continueWatchedResponse.isSuccess == true &&
             continueWatchedResponse.data != null) {
           final normalizedType = type.trim().toUpperCase();
-          _continueWatchedMovies = continueWatchedResponse.data!.where((item) {
+          final rawItems = continueWatchedResponse.data!.where((item) {
             final itemType = item.type?.trim().toUpperCase();
             return itemType == normalizedType;
           }).toList();
+
+          final enrichedItems = <Content>[];
+          final seenSeriesIds = <int>{};
+
+          for (final item in rawItems) {
+            final isSeries =
+                ContentType.isSeries(item.type) || item.episodeId != null;
+
+            if (isSeries) {
+              final seriesId = item.seriesId ?? item.id;
+              if (seriesId != null && seenSeriesIds.contains(seriesId)) {
+                continue;
+              }
+              if (seriesId != null) seenSeriesIds.add(seriesId);
+
+              // 1. Enrich from local SharedPreferences cache if episode metadata is missing
+              if (item.episodeTitle == null || item.episodeNumber == null) {
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  Map<String, dynamic>? meta;
+                  if (item.episodeId != null && item.episodeId! > 0) {
+                    final metaStr = prefs.getString(
+                      "episode_meta_${seriesId}_${item.seasonId ?? 0}_${item.episodeId}",
+                    );
+                    if (metaStr != null) {
+                      meta = jsonDecode(metaStr) as Map<String, dynamic>;
+                    }
+                  }
+                  if (meta == null && seriesId != null) {
+                    final seriesLastStr =
+                        prefs.getString("series_last_episode_$seriesId");
+                    if (seriesLastStr != null) {
+                      meta = jsonDecode(seriesLastStr) as Map<String, dynamic>;
+                    }
+                  }
+
+                  if (meta != null) {
+                    item.episodeId ??= meta['episodeId'];
+                    item.seasonId ??= meta['seasonId'];
+                    item.episodeTitle ??= meta['episodeTitle'];
+                    item.episodeNumber ??= meta['episodeNumber'];
+                    item.seasonNumber ??= meta['seasonNumber'];
+                    item.episodePosterUrl ??= meta['episodePosterUrl'];
+                    item.seriesTitle ??= meta['seriesTitle'] ?? item.title;
+                    if (meta['watchedSeconds'] != null &&
+                        (item.watchedSeconds == null ||
+                            item.watchedSeconds == 0)) {
+                      item.watchedSeconds = meta['watchedSeconds'];
+                    }
+                    if (meta['watchedPercentage'] != null &&
+                        (item.watchedPercentage == null ||
+                            item.watchedPercentage == 0)) {
+                      item.watchedPercentage = meta['watchedPercentage'];
+                    }
+                  }
+                } catch (_) {}
+              }
+
+              // 2. If still missing episode metadata, resolve from series details
+              if ((item.episodeTitle == null || item.episodeNumber == null) &&
+                  seriesId != null &&
+                  seriesId > 0) {
+                try {
+                  final detailsUrl =
+                      ApiConstant.seriesDetails(seriesId, user.id);
+                  final detailsRes = await apiHelper.getApi(detailsUrl);
+                  if (detailsRes.statusCode == 200) {
+                    final detailsBody = jsonDecode(detailsRes.body);
+                    final seriesData =
+                        SeriesDetailsResponse.fromJson(detailsBody);
+                    final entity = seriesData.toEntity();
+
+                    SeasonEntity? matchedSeason;
+                    EpisodeEntity? matchedEpisode;
+
+                    for (final s in entity.seasons) {
+                      if (item.seasonId == null ||
+                          s.seasonId == item.seasonId) {
+                        for (final ep in s.episodes) {
+                          if (item.episodeId == null ||
+                              ep.episodeId == item.episodeId) {
+                            matchedSeason = s;
+                            matchedEpisode = ep;
+                            break;
+                          }
+                        }
+                      }
+                      if (matchedEpisode != null) break;
+                    }
+
+                    if (matchedEpisode == null && entity.seasons.isNotEmpty) {
+                      for (final s in entity.seasons) {
+                        for (final ep in s.episodes) {
+                          if (item.episodeId == ep.episodeId) {
+                            matchedSeason = s;
+                            matchedEpisode = ep;
+                            break;
+                          }
+                        }
+                        if (matchedEpisode != null) break;
+                      }
+                    }
+
+                    if (matchedEpisode != null) {
+                      item.episodeTitle = matchedEpisode.title;
+                      item.episodeNumber = matchedEpisode.episodeNumber;
+                      item.seasonNumber = matchedSeason?.seasonNumber;
+                      item.episodePosterUrl = matchedEpisode.posterUrl;
+                      item.seriesTitle = entity.title.isNotEmpty
+                          ? entity.title
+                          : item.title;
+                      item.contentUrl = matchedEpisode.videoUrl;
+                      item.seasonId ??= matchedSeason?.seasonId;
+                      item.episodeId ??= matchedEpisode.episodeId;
+                    }
+                  }
+                } catch (_) {}
+              }
+
+              enrichedItems.add(item);
+            } else {
+              enrichedItems.add(item);
+            }
+          }
+
+          _continueWatchedMovies = enrichedItems;
         } else {
           _continueWatchedMovies.clear();
         }

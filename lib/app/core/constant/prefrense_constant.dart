@@ -10,4 +10,6 @@ class SharedPreferencesConstant {
   static const String hasCheckedDeferredGiftInstall = "hasCheckedDeferredGiftInstall";
   static const String pendingDeepLinkUri = "pendingDeepLinkUri";
   static const String hasCheckedDeferredContentInstall = "hasCheckedDeferredContentInstall";
+  static const String claimedGiftCodes = "claimedGiftCodes";
+  static const String lastProcessedGiftUri = "lastProcessedGiftUri";
 }

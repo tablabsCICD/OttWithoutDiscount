@@ -40,11 +40,22 @@ class Data {
     this.contentList,
   });
 
-  factory Data.fromJson(Map<String, dynamic> json) => Data(
-        contentList: json["ContentList"] == null
-            ? null
-            : Content.fromJson(json["ContentList"]),
-      );
+  factory Data.fromJson(Map<String, dynamic> json) {
+    final raw = json["ContentList"] ??
+        json["contentList"] ??
+        json["content"] ??
+        json["Content"] ??
+        json["movie"] ??
+        json["Movie"] ??
+        ((json.containsKey("contentUrl") || json.containsKey("videoUrl") || json.containsKey("title")) ? json : null);
+    return Data(
+      contentList: raw is Map<String, dynamic>
+          ? Content.fromJson(raw)
+          : raw is Map
+              ? Content.fromJson(Map<String, dynamic>.from(raw))
+              : null,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         "ContentList": contentList?.toJson(),

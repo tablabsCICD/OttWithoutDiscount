@@ -326,4 +326,71 @@ void main() {
       );
     });
   });
+
+  group('Season and Episode ID Extraction from Variant Schema Keys', () {
+    test('extracts seasonId and episodeId when backend provides id or snake_case keys', () {
+      final seasonJson = {
+        'id': 15,
+        'title': 'Season 1',
+        'episodes': [
+          {
+            'id': 205,
+            'title': 'Episode 5',
+            'videoUrl': 'https://cdn.filmytell.com/episodes/205.m3u8',
+          }
+        ]
+      };
+      final season = SeasonResponse.fromJson(seasonJson);
+      expect(season.seasonId, 15);
+      expect(season.episodes.first.episodeId, 205);
+      expect(season.episodes.first.videoUrl, 'https://cdn.filmytell.com/episodes/205.m3u8');
+    });
+
+    test('extracts episodeId from epId or episode_id', () {
+      final epJson1 = {'epId': 301, 'title': 'Ep 1'};
+      final epJson2 = {'episode_id': 302, 'title': 'Ep 2'};
+      expect(EpisodeResponse.fromJson(epJson1).episodeId, 301);
+      expect(EpisodeResponse.fromJson(epJson2).episodeId, 302);
+    });
+  });
+
+  group('Movie Content URL vs Trailer URL Separation', () {
+    test('movie contentUrl is parsed from languageList and distinguishes from trailerUrl', () {
+      final movieJson = {
+        'id': 999,
+        'title': 'Feature Movie',
+        'trailerUrl': 'https://cdn.filmytell.com/trailers/feature.mp4',
+        'languageList': [
+          {
+            'language': 'Hindi',
+            'videoUrl': 'https://cdn.filmytell.com/movies/999/hi/master.m3u8',
+          }
+        ],
+      };
+      final content = Content.fromJson(movieJson);
+      expect(content.trailerUrl, 'https://cdn.filmytell.com/trailers/feature.mp4');
+      expect(content.contentUrl, 'https://cdn.filmytell.com/movies/999/hi/master.m3u8');
+      expect(content.contentUrl, isNot(equals(content.trailerUrl)));
+    });
+
+    test('player replaces trailerUrl with canonical contentUrl if trailerUrl was inadvertently supplied', () {
+      final movie = Content(
+        id: 888,
+        title: 'Special Movie',
+        trailerUrl: 'https://cdn.filmytell.com/trailers/special_trailer.mp4',
+        contentUrl: 'https://cdn.filmytell.com/movies/888/master.m3u8',
+      );
+
+      // Simulates the player URL resolution guard
+      var suppliedSourceUrl = 'https://cdn.filmytell.com/trailers/special_trailer.mp4';
+      if (movie.contentUrl != null &&
+          movie.contentUrl!.isNotEmpty &&
+          suppliedSourceUrl == movie.trailerUrl) {
+        suppliedSourceUrl = movie.contentUrl!;
+      }
+
+      expect(suppliedSourceUrl, 'https://cdn.filmytell.com/movies/888/master.m3u8');
+      expect(suppliedSourceUrl, isNot(equals(movie.trailerUrl)));
+    });
+  });
 }

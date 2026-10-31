@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -304,7 +305,12 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Consumer<SeriesProvider>(
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          _handleTrailerScrollNotification(notification);
+          return false;
+        },
+        child: Consumer<SeriesProvider>(
         builder: (context, provider, _) {
           if (provider.isLoading) {
             return Center(
@@ -441,6 +447,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             ],
           );
         },
+        ),
       ),
     );
   }
@@ -1351,6 +1358,43 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     if (_isHeroTrailerPlaying) {
       setState(() => _isHeroTrailerPlaying = false);
     }
+  }
+
+  bool _isUpwardScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is UserScrollNotification) {
+      return notification.direction == ScrollDirection.reverse;
+    }
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta;
+      return delta != null && delta > 0;
+    }
+    if (notification is OverscrollNotification) {
+      return notification.overscroll > 0;
+    }
+    return false;
+  }
+
+  void _handleTrailerScrollNotification(ScrollNotification notification) {
+    if (_isUpwardScrollNotification(notification)) {
+      _pauseTrailerOnScrollUp();
+    }
+  }
+
+  void _pauseTrailerOnScrollUp() {
+    final isPlaying = _trailerController.isPlaying?.call();
+    final isPendingAutoplay = _heroTrailerTimer != null;
+    if (isPlaying == false && !isPendingAutoplay && !_isHeroTrailerPlaying) {
+      return;
+    }
+    if (_trailerController.pause == null &&
+        !isPendingAutoplay &&
+        !_isHeroTrailerPlaying) {
+      return;
+    }
+    _stopHeroTrailer();
   }
 
   _ResumeEpisode? _firstPlayableEpisode(List<SeasonEntity> seasons) {

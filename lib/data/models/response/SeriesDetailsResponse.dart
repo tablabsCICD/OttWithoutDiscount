@@ -91,7 +91,7 @@ class SeasonResponse {
     return SeasonResponse(
       seasonId: json['seasonId'] is int
           ? json['seasonId'] as int
-          : int.tryParse(json['seasonId']?.toString() ?? '') ?? 0,
+          : int.tryParse((json['seasonId'] ?? json['season_id'] ?? json['id'])?.toString() ?? '') ?? 0,
       seasonNumber: json['seasonNumber'] is int
           ? json['seasonNumber'] as int
           : int.tryParse(json['seasonNumber']?.toString() ?? '') ?? 1,
@@ -175,7 +175,7 @@ class EpisodeResponse {
     return EpisodeResponse(
       episodeId: json['episodeId'] is int
           ? json['episodeId'] as int
-          : int.tryParse(json['episodeId']?.toString() ?? '') ?? 0,
+          : int.tryParse((json['episodeId'] ?? json['episode_id'] ?? json['id'] ?? json['epId'])?.toString() ?? '') ?? 0,
       episodeNumber: json['episodeNumber'] is int
           ? json['episodeNumber'] as int
           : int.tryParse(json['episodeNumber']?.toString() ?? '') ?? 1,

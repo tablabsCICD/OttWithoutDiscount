@@ -17,6 +17,9 @@ class GiftProvider extends BaseProvider {
   bool _isSavingGift = false;
   bool get isSavingGift => _isSavingGift;
 
+  bool _isClaimingGift = false;
+  bool get isClaimingGift => _isClaimingGift;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
@@ -191,6 +194,16 @@ class GiftProvider extends BaseProvider {
 
   /// use gift by coupon
   Future<Map<String, dynamic>> useGiftByCoupon(String couponCode) async {
+    if (_isClaimingGift) {
+      return {
+        "success": false,
+        "message": "Gift claim already in progress. Please wait."
+      };
+    }
+
+    _isClaimingGift = true;
+    notifyListeners();
+
     try {
       User? user = await LocalSharePreferences.localSharePreferences.getUser();
 
@@ -211,31 +224,52 @@ class GiftProvider extends BaseProvider {
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = json.decode(response.body);
 
-        if (responseBody["success"] == true) {
+        if (responseBody["success"] == true || responseBody["status"] == true) {
           return {
             "success": true,
-            "message": responseBody["message"] ?? "Gift saved successfully"
+            "message": responseBody["message"] ?? "Gift card claimed successfully!"
           };
         } else {
+          final rawMsg = responseBody["message"]?.toString() ?? "";
           log(
             "Gift Claim Error Response Received => "
-            "${responseBody["message"] ?? "Failed to save gift"}",
+            "${rawMsg.isNotEmpty ? rawMsg : 'Failed to save gift'}",
           );
           return {
             "success": false,
-            "message": responseBody["message"] ?? "Failed to save gift"
+            "message": rawMsg.isNotEmpty ? rawMsg : "Failed to save gift",
+            "statusCode": 200,
           };
         }
       } else {
         log("Gift Claim Error Response Received => ${response.statusCode}");
         return {
           "success": false,
-          "message": "Server error: ${response.statusCode}"
+          "message": response.statusCode >= 500
+              ? "Something went wrong while claiming the gift card. Please try again later."
+              : "Server error: ${response.statusCode}",
+          "statusCode": response.statusCode,
         };
       }
     } catch (error, stack) {
       log("Gift Claim Error Response Received => $error", stackTrace: stack);
-      return {"success": false, "message": "Something went wrong: $error"};
+      final errStr = error.toString().toLowerCase();
+      final isNetwork = errStr.contains('socket') ||
+          errStr.contains('network') ||
+          errStr.contains('connection') ||
+          errStr.contains('host lookup') ||
+          errStr.contains('timed out') ||
+          errStr.contains('clientexception');
+      return {
+        "success": false,
+        "message": isNetwork
+            ? "Unable to claim the gift card. Please check your internet connection and try again."
+            : "Something went wrong while claiming the gift card. Please try again later.",
+        "error": error,
+      };
+    } finally {
+      _isClaimingGift = false;
+      notifyListeners();
     }
   }
 }

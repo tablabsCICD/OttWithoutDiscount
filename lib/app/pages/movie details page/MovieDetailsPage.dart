@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -154,13 +155,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
     }
 
     if (contentUrl == null || contentUrl.isEmpty) {
-      contentUrl = (contentToPlay.trailerUrl ?? contentToPlay.teaserUrl)?.trim();
-    }
-
-    if (contentUrl == null || contentUrl.isEmpty) {
       CustomToast.show(
         context,
-        "Video is not available",
+        "Movie video is not available at the moment.",
         isSuccess: false,
       );
       return;
@@ -246,21 +243,27 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: SafeArea(
-        top: false,
-        bottom: true,
-        child: Consumer<DashboardProvider>(
-          builder: (context, provider, child) {
-            final content = provider.content;
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          _handleTrailerScrollNotification(notification);
+          return false;
+        },
+        child: SafeArea(
+          top: false,
+          bottom: true,
+          child: Consumer<DashboardProvider>(
+            builder: (context, provider, child) {
+              final content = provider.content;
 
-            return Stack(
-              children: [
-                !ResponsiveWidget.isMobile(context)
-                    ? _buildCinematicTvView(content, selectedThemeData)
-                    : _buildMobileView(content, selectedThemeData),
-              ],
-            );
-          },
+              return Stack(
+                children: [
+                  !ResponsiveWidget.isMobile(context)
+                      ? _buildCinematicTvView(content, selectedThemeData)
+                      : _buildMobileView(content, selectedThemeData),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1028,6 +1031,43 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
     if (_isHeroTrailerPlaying) {
       setState(() => _isHeroTrailerPlaying = false);
     }
+  }
+
+  bool _isUpwardScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is UserScrollNotification) {
+      return notification.direction == ScrollDirection.reverse;
+    }
+    if (notification is ScrollUpdateNotification) {
+      final delta = notification.scrollDelta;
+      return delta != null && delta > 0;
+    }
+    if (notification is OverscrollNotification) {
+      return notification.overscroll > 0;
+    }
+    return false;
+  }
+
+  void _handleTrailerScrollNotification(ScrollNotification notification) {
+    if (_isUpwardScrollNotification(notification)) {
+      _pauseTrailerOnScrollUp();
+    }
+  }
+
+  void _pauseTrailerOnScrollUp() {
+    final isPlaying = _trailerController.isPlaying?.call();
+    final isPendingAutoplay = _heroTrailerTimer != null;
+    if (isPlaying == false && !isPendingAutoplay && !_isHeroTrailerPlaying) {
+      return;
+    }
+    if (_trailerController.pause == null &&
+        !isPendingAutoplay &&
+        !_isHeroTrailerPlaying) {
+      return;
+    }
+    _stopHeroTrailer();
   }
 
   Future<void> _openTrailer(Content content) async {

@@ -50,6 +50,13 @@ class Content {
   int? seasonId;
   int? episodeId;
 
+  int? seriesId;
+  String? seriesTitle;
+  int? seasonNumber;
+  int? episodeNumber;
+  String? episodeTitle;
+  String? episodePosterUrl;
+
   Content({
     this.id,
     this.title,
@@ -88,7 +95,141 @@ class Content {
     this.watchedPercentage,
     this.seasonId,
     this.episodeId,
+    this.seriesId,
+    this.seriesTitle,
+    this.seasonNumber,
+    this.episodeNumber,
+    this.episodeTitle,
+    this.episodePosterUrl,
   });
+
+  /// Formatted display title for UI (e.g. Continue Watching card/banner).
+  /// For series episodes, displays the episode information.
+  String get displayTitle {
+    final isSeries = (type?.trim().toLowerCase() == 'series') ||
+        (episodeId != null && episodeId! > 0) ||
+        (episodeTitle != null && episodeTitle!.trim().isNotEmpty);
+
+    if (isSeries && (episodeTitle != null || episodeNumber != null)) {
+      final epNum = episodeNumber != null ? 'E$episodeNumber' : '';
+      final sNum = seasonNumber != null ? 'S$seasonNumber' : '';
+      final epPrefix = (sNum.isNotEmpty && epNum.isNotEmpty)
+          ? '$sNum:$epNum'
+          : (epNum.isNotEmpty ? epNum : sNum);
+
+      final hasExplicitTitle =
+          episodeTitle != null && episodeTitle!.trim().isNotEmpty;
+      final epName = hasExplicitTitle ? episodeTitle!.trim() : '';
+
+      final parentTitle = (seriesTitle != null && seriesTitle!.trim().isNotEmpty)
+          ? seriesTitle!.trim()
+          : ((title != null && title != episodeTitle) ? title!.trim() : '');
+
+      if (parentTitle.isNotEmpty && epPrefix.isNotEmpty && epName.isNotEmpty) {
+        return '$parentTitle • $epPrefix - $epName';
+      } else if (parentTitle.isNotEmpty && epPrefix.isNotEmpty) {
+        return '$parentTitle • $epPrefix';
+      } else if (epPrefix.isNotEmpty && epName.isNotEmpty) {
+        return '$epPrefix • $epName';
+      } else if (epPrefix.isNotEmpty) {
+        return epPrefix;
+      } else if (epName.isNotEmpty) {
+        return parentTitle.isNotEmpty ? '$parentTitle • $epName' : epName;
+      }
+    }
+    return title ?? '';
+  }
+
+  Content copyWith({
+    int? id,
+    String? title,
+    String? description,
+    int? runtime,
+    dynamic releaseDate,
+    double? ratings,
+    double? price,
+    List<LanguageList>? languageList,
+    List<String>? castList,
+    List<String>? genreList,
+    List<String>? directorList,
+    int? views,
+    double? totalRevenue,
+    String? ageRating,
+    List<String>? posterUrlList,
+    String? teaserUrl,
+    String? trailerUrl,
+    String? contentUrl,
+    String? approvalStatus,
+    String? type,
+    String? sensorCertificate,
+    bool? isFeatured,
+    Availability? availability,
+    List<String>? audioFormatList,
+    List<String>? subtitleLanguageList,
+    bool? isDownloadable,
+    int? uploadDateTime,
+    int? approvedDateTime,
+    String? mediaHouseName,
+    int? mediaHouseId,
+    int? ratingCount,
+    String? rentlDuration,
+    bool? isRental,
+    int? watchedSeconds,
+    int? watchedPercentage,
+    int? seasonId,
+    int? episodeId,
+    int? seriesId,
+    String? seriesTitle,
+    int? seasonNumber,
+    int? episodeNumber,
+    String? episodeTitle,
+    String? episodePosterUrl,
+  }) =>
+      Content(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        description: description ?? this.description,
+        runtime: runtime ?? this.runtime,
+        releaseDate: releaseDate ?? this.releaseDate,
+        ratings: ratings ?? this.ratings,
+        price: price ?? this.price,
+        languageList: languageList ?? this.languageList,
+        castList: castList ?? this.castList,
+        genreList: genreList ?? this.genreList,
+        directorList: directorList ?? this.directorList,
+        views: views ?? this.views,
+        totalRevenue: totalRevenue ?? this.totalRevenue,
+        ageRating: ageRating ?? this.ageRating,
+        posterUrlList: posterUrlList ?? this.posterUrlList,
+        teaserUrl: teaserUrl ?? this.teaserUrl,
+        trailerUrl: trailerUrl ?? this.trailerUrl,
+        contentUrl: contentUrl ?? this.contentUrl,
+        approvalStatus: approvalStatus ?? this.approvalStatus,
+        type: type ?? this.type,
+        sensorCertificate: sensorCertificate ?? this.sensorCertificate,
+        isFeatured: isFeatured ?? this.isFeatured,
+        availability: availability ?? this.availability,
+        audioFormatList: audioFormatList ?? this.audioFormatList,
+        subtitleLanguageList: subtitleLanguageList ?? this.subtitleLanguageList,
+        isDownloadable: isDownloadable ?? this.isDownloadable,
+        uploadDateTime: uploadDateTime ?? this.uploadDateTime,
+        approvedDateTime: approvedDateTime ?? this.approvedDateTime,
+        mediaHouseName: mediaHouseName ?? this.mediaHouseName,
+        mediaHouseId: mediaHouseId ?? this.mediaHouseId,
+        ratingCount: ratingCount ?? this.ratingCount,
+        rentlDuration: rentlDuration ?? this.rentlDuration,
+        isRental: isRental ?? this.isRental,
+        watchedSeconds: watchedSeconds ?? this.watchedSeconds,
+        watchedPercentage: watchedPercentage ?? this.watchedPercentage,
+        seasonId: seasonId ?? this.seasonId,
+        episodeId: episodeId ?? this.episodeId,
+        seriesId: seriesId ?? this.seriesId,
+        seriesTitle: seriesTitle ?? this.seriesTitle,
+        seasonNumber: seasonNumber ?? this.seasonNumber,
+        episodeNumber: episodeNumber ?? this.episodeNumber,
+        episodeTitle: episodeTitle ?? this.episodeTitle,
+        episodePosterUrl: episodePosterUrl ?? this.episodePosterUrl,
+      );
 
   String? get teaserOrTrailerUrl {
     final teaser = teaserUrl?.trim();
@@ -197,8 +338,75 @@ class Content {
         watchedSeconds: _asInt(json['watchedSeconds']),
         watchedPercentage: _asInt(json['watchedPercentage']),
 
-        seasonId: _asInt(json['seasonId'] ?? json['season_id'] ?? json['activeSeasonId']),
-        episodeId: _asInt(json['episodeId'] ?? json['episode_id'] ?? json['activeEpisodeId'] ?? json['epId']),
+        seasonId: _asInt(
+          json['seasonId'] ??
+              json['season_id'] ??
+              json['activeSeasonId'] ??
+              json['season']?['id'] ??
+              json['season']?['seasonId'],
+        ),
+        episodeId: _asInt(
+          json['episodeId'] ??
+              json['episode_id'] ??
+              json['activeEpisodeId'] ??
+              json['epId'] ??
+              json['episode']?['id'] ??
+              json['episode']?['episodeId'],
+        ),
+        seriesId: _asInt(
+          json['seriesId'] ??
+              json['series_id'] ??
+              json['contentId'] ??
+              json['seriesContentId'] ??
+              (json['type']?.toString().toLowerCase() == 'series'
+                  ? json['id']
+                  : null),
+        ),
+        seriesTitle: _stringFromField(
+          json['seriesTitle'] ??
+              json['series_title'] ??
+              json['seriesName'] ??
+              json['series_name'] ??
+              json['series']?['title'] ??
+              json['series']?['name'],
+        ),
+        seasonNumber: _asInt(
+          json['seasonNumber'] ??
+              json['season_number'] ??
+              json['seasonIndex'] ??
+              json['season_index'] ??
+              json['season']?['seasonNumber'] ??
+              json['season']?['season_number'],
+        ),
+        episodeNumber: _asInt(
+          json['episodeNumber'] ??
+              json['episode_number'] ??
+              json['episodeIndex'] ??
+              json['episode_index'] ??
+              json['episode']?['episodeNumber'] ??
+              json['episode']?['episode_number'],
+        ),
+        episodeTitle: _stringFromField(
+          json['episodeTitle'] ??
+              json['episode_title'] ??
+              json['episodeName'] ??
+              json['episode_name'] ??
+              json['episode']?['title'] ??
+              json['episode']?['name'],
+        ),
+        episodePosterUrl: _stringFromField(
+          json['episodePosterUrl'] ??
+              json['episode_poster_url'] ??
+              json['episodePoster'] ??
+              json['episode_poster'] ??
+              json['episodeThumbnail'] ??
+              json['episode_thumbnail'] ??
+              json['thumbnailUrl'] ??
+              json['thumbnail_url'] ??
+              json['episode']?['posterUrl'] ??
+              json['episode']?['poster_url'] ??
+              json['episode']?['thumbnail'],
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -239,6 +447,12 @@ class Content {
         "watchedPercentage": watchedPercentage,
         "seasonId": seasonId,
         "episodeId": episodeId,
+        "seriesId": seriesId,
+        "seriesTitle": seriesTitle,
+        "seasonNumber": seasonNumber,
+        "episodeNumber": episodeNumber,
+        "episodeTitle": episodeTitle,
+        "episodePosterUrl": episodePosterUrl,
       };
 }
 
@@ -337,6 +551,14 @@ String? _contentUrlFromJson(Map<String, dynamic> json) {
       if (item is Map) {
         final languageUrl = _stringFromField(item['fileUrl']) ??
             _stringFromField(item['file_url']) ??
+            _stringFromField(item['videoUrl']) ??
+            _stringFromField(item['video_url']) ??
+            _stringFromField(item['contentUrl']) ??
+            _stringFromField(item['content_url']) ??
+            _stringFromField(item['playbackUrl']) ??
+            _stringFromField(item['playback_url']) ??
+            _stringFromField(item['hlsUrl']) ??
+            _stringFromField(item['hls_url']) ??
             _stringFromField(item['url']);
         if (languageUrl != null && languageUrl.isNotEmpty) return languageUrl;
       }
@@ -349,7 +571,20 @@ String? _contentUrlFromJson(Map<String, dynamic> json) {
 String? _stringFromField(dynamic field) {
   if (field == null) return null;
   if (field is Map) {
-    for (final key in const ['url', 'fileUrl', 'file_url', 'path']) {
+    for (final key in const [
+      'url',
+      'fileUrl',
+      'file_url',
+      'videoUrl',
+      'video_url',
+      'contentUrl',
+      'content_url',
+      'playbackUrl',
+      'playback_url',
+      'hlsUrl',
+      'hls_url',
+      'path',
+    ]) {
       final value = field[key]?.toString().trim();
       if (value != null && value.isNotEmpty) return value;
     }
