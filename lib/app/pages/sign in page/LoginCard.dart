@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:ott/app/core/services/referral_service.dart';
+import 'package:ott/app/core/services/gift_deep_link_service.dart';
 
 class LoginCard extends StatefulWidget {
   const LoginCard({super.key});
@@ -60,6 +61,7 @@ class _LoginCardState extends State<LoginCard> with CodeAutoFill {
   Timer? _otpAutoFillTimeoutTimer;
   final Stopwatch _screenLoadWatch = Stopwatch();
   String? _pendingReferralCode;
+  String? _pendingGiftCode;
 
   String selectedCode = '+91';
   final List<String> countryCodes = ['+91', '+1', '+44', '+61', '+971'];
@@ -72,6 +74,7 @@ class _LoginCardState extends State<LoginCard> with CodeAutoFill {
     _mobileFocusNode.addListener(_handleInputFocusChanged);
     _otpFocusNode.addListener(_handleInputFocusChanged);
     _checkPendingReferralCode();
+    _checkPendingGiftCode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (kDebugMode) {
         log(
@@ -109,6 +112,15 @@ class _LoginCardState extends State<LoginCard> with CodeAutoFill {
     if (mounted && code != _pendingReferralCode) {
       setState(() {
         _pendingReferralCode = code;
+      });
+    }
+  }
+
+  Future<void> _checkPendingGiftCode() async {
+    final code = await GiftDeepLinkService.instance.getPendingGiftCode();
+    if (mounted && code != _pendingGiftCode) {
+      setState(() {
+        _pendingGiftCode = code;
       });
     }
   }
@@ -275,12 +287,52 @@ class _LoginCardState extends State<LoginCard> with CodeAutoFill {
                                         color: theme.primaryColor,
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        'Referral Code: $_pendingReferralCode',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: theme.primaryColor,
+                                      Flexible(
+                                        child: Text(
+                                          'Referral Code: $_pendingReferralCode',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.primaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              if (_pendingGiftCode != null) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color:
+                                          theme.primaryColor.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.card_giftcard,
+                                        size: 16,
+                                        color: theme.primaryColor,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'Gift Code: $_pendingGiftCode',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.primaryColor,
+                                          ),
                                         ),
                                       ),
                                     ],

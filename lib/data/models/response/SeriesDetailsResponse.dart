@@ -185,13 +185,86 @@ class EpisodeResponse {
       releaseDate: parsedDate,
       isFree: free,
       posterUrl: json['posterUrl'] ?? '',
-      videoUrl: (json['videoUrl'] ?? json['contentUrl'] ?? json['url'])?.toString(),
+      videoUrl: _extractEpisodeVideoUrl(json),
       isPurchased: purchased,
       isLocked: locked,
       price: json['price'] is num
           ? json['price'] as num
           : num.tryParse(json['price']?.toString() ?? ''),
     );
+  }
+
+  static String? _extractEpisodeVideoUrl(Map<String, dynamic> json) {
+    const candidateKeys = [
+      'videoUrl',
+      'videoFile',
+      'videoFileUrl',
+      'video_url',
+      'video_file',
+      'video_file_url',
+      'contentUrl',
+      'contentFile',
+      'contentFileUrl',
+      'content_url',
+      'content_file',
+      'content_file_url',
+      'movieUrl',
+      'movieFile',
+      'movieFileUrl',
+      'movie_url',
+      'movie_file',
+      'movie_file_url',
+      'playbackUrl',
+      'playback_url',
+      'hlsUrl',
+      'hls_url',
+      'streamUrl',
+      'stream_url',
+      'mediaUrl',
+      'media_url',
+      'masterUrl',
+      'master_url',
+      'manifestUrl',
+      'manifest_url',
+      'fileUrl',
+      'file_url',
+      'url',
+    ];
+
+    for (final key in candidateKeys) {
+      final value = json[key];
+      if (value != null) {
+        if (value is Map) {
+          for (final subKey in const ['url', 'fileUrl', 'file_url', 'path']) {
+            final subVal = value[subKey]?.toString().trim();
+            if (subVal != null && subVal.isNotEmpty) return subVal;
+          }
+        } else {
+          final s = value.toString().trim();
+          if (s.isNotEmpty) return s;
+        }
+      }
+    }
+
+    final languages = json['languageList'];
+    if (languages is List) {
+      for (final item in languages) {
+        if (item is Map) {
+          final raw = item['fileUrl'] ??
+              item['file_url'] ??
+              item['videoUrl'] ??
+              item['video_url'] ??
+              item['contentUrl'] ??
+              item['content_url'] ??
+              item['playbackUrl'] ??
+              item['url'];
+          final s = raw?.toString().trim();
+          if (s != null && s.isNotEmpty) return s;
+        }
+      }
+    }
+
+    return null;
   }
 
   EpisodeEntity toEntity() {

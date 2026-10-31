@@ -17,16 +17,35 @@ class CastMember {
     this.seasonId,
   });
 
-  factory CastMember.fromJson(Map<String, dynamic> json) {
+  factory CastMember.fromJson(Map<dynamic, dynamic> rawJson) {
+    final json = Map<String, dynamic>.from(rawJson);
     return CastMember(
-      castId: _asInt(json['castId']),
+      castId: _asInt(json['castId'] ?? json['id'] ?? json['crewId'] ?? json['personId']),
       name: _firstString(
         json,
-        const ['name', 'mname', 'memberName', 'castName'],
+        const [
+          'name',
+          'mname',
+          'memberName',
+          'castName',
+          'personName',
+          'actorName',
+          'artistName',
+          'fullName',
+        ],
       ),
       role: _firstString(
         json,
-        const ['role', 'character', 'designation'],
+        const [
+          'role',
+          'character',
+          'designation',
+          'roleName',
+          'type',
+          'profession',
+          'job',
+          'department',
+        ],
       ),
       image: _normalizeImageUrl(
         _firstString(
@@ -42,6 +61,8 @@ class CastMember {
             'photo',
             'avatar',
             'url',
+            'posterUrl',
+            'img',
           ],
         ),
       ),
@@ -49,7 +70,7 @@ class CastMember {
         json,
         const ['description', 'bio', 'about'],
       ),
-      contentId: _asInt(json['contentId'] ?? json['movieId']),
+      contentId: _asInt(json['contentId'] ?? json['movieId'] ?? json['seriesId']),
       seasonId: _asInt(json['seasonId']),
     );
   }

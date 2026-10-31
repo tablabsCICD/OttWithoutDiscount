@@ -193,7 +193,7 @@ class _SeriesListViewState extends State<_SeriesListView>
 
       final hasTrailer = items != null &&
           candidate < items.length &&
-          (items[candidate].trailerUrl?.trim().isNotEmpty ?? false);
+          items[candidate].hasValidTrailer;
       if (!hasTrailer) continue;
 
       final visibility = overlap / cardExtent;

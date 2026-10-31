@@ -26,7 +26,7 @@ void main() {
         type: DeepLinkContentType.movie,
         id: 123,
       );
-      expect(url.toString(), 'https://filmytell.in/movie/123');
+      expect(url.toString(), 'https://filmytell.com/movie/123');
       expect(url.toString().contains('/share/'), isFalse);
     });
 
@@ -35,7 +35,7 @@ void main() {
         type: DeepLinkContentType.series,
         id: 456,
       );
-      expect(url.toString(), 'https://filmytell.in/series/456');
+      expect(url.toString(), 'https://filmytell.com/series/456');
       expect(url.toString().contains('/share/'), isFalse);
     });
 
@@ -44,7 +44,7 @@ void main() {
         type: DeepLinkContentType.miniSeries,
         id: 789,
       );
-      expect(url.toString(), 'https://filmytell.in/miniseries/789');
+      expect(url.toString(), 'https://filmytell.com/miniseries/789');
       expect(url.toString().contains('/share/'), isFalse);
     });
 
@@ -53,24 +53,24 @@ void main() {
         type: DeepLinkContentType.shortFilm,
         id: 101,
       );
-      expect(url.toString(), 'https://filmytell.in/short-film/101');
+      expect(url.toString(), 'https://filmytell.com/short-film/101');
       expect(url.toString().contains('/share/'), isFalse);
     });
 
-    test('buildAppLink supports filmytell.in custom domain', () {
+    test('buildAppLink supports filmytell.com custom domain', () {
       final url = deepLinkService.buildAppLink(
         type: DeepLinkContentType.movie,
         id: 123,
-        customHost: 'filmytell.in',
+        customHost: 'filmytell.com',
       );
-      expect(url.toString(), 'https://filmytell.in/movie/123');
+      expect(url.toString(), 'https://filmytell.com/movie/123');
     });
   });
 
   group('Universal URL Parsing across supported domains', () {
     final deepLinkService = DeepLinkService.instance;
 
-    test('parses filmytell.com and filmytell.in clean movie links', () {
+    test('parses filmytell.com and filmytell.com clean movie links', () {
       final targetCom = deepLinkService.parseTarget(
         Uri.parse('https://filmytell.com/movie/123'),
       );
@@ -79,14 +79,14 @@ void main() {
       expect(targetCom.id, 123);
 
       final targetIn = deepLinkService.parseTarget(
-        Uri.parse('https://filmytell.in/movie/123'),
+        Uri.parse('https://filmytell.com/movie/123'),
       );
       expect(targetIn, isNotNull);
       expect(targetIn!.type, DeepLinkContentType.movie);
       expect(targetIn.id, 123);
 
       final targetWwwIn = deepLinkService.parseTarget(
-        Uri.parse('https://www.filmytell.in/movie/123'),
+        Uri.parse('https://www.filmytell.com/movie/123'),
       );
       expect(targetWwwIn, isNotNull);
       expect(targetWwwIn!.type, DeepLinkContentType.movie);
@@ -109,7 +109,7 @@ void main() {
       expect(miniTarget1.id, 789);
 
       final miniTarget2 = deepLinkService.parseTarget(
-        Uri.parse('https://filmytell.in/mini-series/789'),
+        Uri.parse('https://filmytell.com/mini-series/789'),
       );
       expect(miniTarget2, isNotNull);
       expect(miniTarget2!.type, DeepLinkContentType.miniSeries);
@@ -139,7 +139,7 @@ void main() {
       expect(legacyMovieTarget.id, 123);
 
       final legacySeriesTarget = deepLinkService.parseTarget(
-        Uri.parse('https://filmytell.in/share/series/456'),
+        Uri.parse('https://filmytell.com/share/series/456'),
       );
       expect(legacySeriesTarget, isNotNull);
       expect(legacySeriesTarget!.type, DeepLinkContentType.series);
@@ -178,7 +178,9 @@ void main() {
   });
 
   group('One Universal QR Code & ShareService', () {
-    test('prepareContentShare produces exactly ONE QR code linking to universal URL', () async {
+    test(
+        'prepareContentShare produces exactly ONE QR code linking to universal URL',
+        () async {
       final movie = Content(
         id: 123,
         title: 'Universal Cinema',
@@ -192,15 +194,16 @@ void main() {
       );
 
       // Verify QR link matches clean universal URL
-      expect(shareData.qrLink.toString(), 'https://filmytell.in/movie/123');
+      expect(shareData.qrLink.toString(), 'https://filmytell.com/movie/123');
       expect(shareData.qrLink.toString().contains('/share/'), isFalse);
 
       // Verify QR Code image is generated
       expect(shareData.qrCode.bytes.isNotEmpty, isTrue);
 
-      // Verify share message contains title, universal link, and official store links
+      // Verify share message contains title, universal URL and official store links
       expect(shareData.message.contains('Universal Cinema'), isTrue);
-      expect(shareData.message.contains('https://filmytell.in/movie/123'), isTrue);
+      expect(
+          shareData.message.contains('https://filmytell.com/movie/123'), isTrue);
       expect(shareData.message.contains(AppConstant.playStoreLink), isTrue);
       expect(shareData.message.contains(AppConstant.appStoreLink), isTrue);
     });

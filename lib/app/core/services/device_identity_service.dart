@@ -20,7 +20,7 @@ class SecureDeviceIdStore implements DeviceIdStore {
   SecureDeviceIdStore({FlutterSecureStorage? storage})
       : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              aOptions: AndroidOptions(resetOnError: true),
               iOptions: IOSOptions(
                 accessibility: KeychainAccessibility.first_unlock_this_device,
               ),
@@ -30,10 +30,33 @@ class SecureDeviceIdStore implements DeviceIdStore {
   final FlutterSecureStorage _storage;
 
   @override
-  Future<String?> read() => _storage.read(key: _key);
+  Future<String?> read() async {
+    try {
+      final val = await _storage
+          .read(key: _key)
+          .timeout(const Duration(milliseconds: 1000));
+      if (val != null && val.isNotEmpty) return val;
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_key);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
-  Future<void> write(String value) => _storage.write(key: _key, value: value);
+  Future<void> write(String value) async {
+    try {
+      await _storage
+          .write(key: _key, value: value)
+          .timeout(const Duration(milliseconds: 1000));
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, value);
+    } catch (_) {}
+  }
 }
 
 class DeviceIdentityService {
@@ -158,9 +181,9 @@ class DeviceIdentityService {
   static Future<Map<String, dynamic>?> _loadPlatformInfo() async {
     if (kIsWeb) return null;
     try {
-      final result = await _channel.invokeMapMethod<String, dynamic>(
-        'deviceIdentity',
-      );
+      final result = await _channel
+          .invokeMapMethod<String, dynamic>('deviceIdentity')
+          .timeout(const Duration(milliseconds: 1000));
       return result == null ? null : Map<String, dynamic>.from(result);
     } catch (_) {
       return null;

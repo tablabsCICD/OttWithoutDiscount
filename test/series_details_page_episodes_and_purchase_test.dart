@@ -251,14 +251,14 @@ void main() {
       // Verify episode listing
       expect(find.text('Pilot Episode'), findsOneWidget);
       expect(find.text('Second Episode'), findsOneWidget);
-      expect(find.text('Ep. 1 • 30 min'), findsOneWidget);
-      expect(find.text('Ep. 2 • 32 min'), findsOneWidget);
+      expect(find.text('Ep. 1 • 00:30:00'), findsOneWidget);
+      expect(find.text('Ep. 2 • 00:32:00'), findsOneWidget);
 
       // Verify separate season buy button is visible with correct price
       expect(find.text('Rent complete Season ₹99'), findsOneWidget);
 
-      // Verify locked episode price buttons are visible separately
-      expect(find.text('₹15.0'), findsNWidgets(2));
+      // Verify individual episode purchase buttons are hidden per business requirement
+      expect(find.text('₹15.0'), findsNothing);
     });
 
     testWidgets('displays episode rail and rent season button on TV for unpurchased series',
@@ -322,7 +322,7 @@ void main() {
       // TV Season Header displays Rent Season button
       expect(find.text('Rent Season ₹99'), findsOneWidget);
       expect(find.text('Pilot Episode'), findsOneWidget);
-      expect(find.text('30 min'), findsOneWidget);
+      expect(find.text('00:30:00'), findsOneWidget);
     });
 
     testWidgets('displays minimal empty-state message when season has no episodes (mobile)',
@@ -572,8 +572,8 @@ void main() {
       expect(find.text('Rent complete Season ₹150'), findsOneWidget);
 
       // Episode 1 has no price button (unlocked)
-      // Episode 2 has price button (locked)
-      expect(find.text('₹25.0'), findsOneWidget);
+      // Episode 2 price button is hidden per business requirement
+      expect(find.text('₹25.0'), findsNothing);
     });
 
     testWidgets('details section shows formatted price with currency symbol',

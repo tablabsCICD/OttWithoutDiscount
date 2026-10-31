@@ -92,17 +92,12 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
   Timer? _playDelayTimer;
   Future<void>? _previewStartFuture;
 
+  bool get _hasValidTrailer =>
+      DirectTrailerSource.hasValidTrailer(widget.movie.trailerUrl);
+
   String? _directPreviewUrl(String? rawUrl) {
-    final value = DirectTrailerSource.fromBackend(rawUrl);
-    if (value == null) return null;
-    final uri = Uri.tryParse(value);
-    if (uri == null || !uri.hasScheme) return null;
-
-    final host = uri.host.toLowerCase();
-    final isYoutube = host.contains('youtube.com') || host == 'youtu.be';
-    if (isYoutube) return null;
-
-    return value;
+    if (!DirectTrailerSource.hasValidTrailer(rawUrl)) return null;
+    return DirectTrailerSource.fromBackend(rawUrl);
   }
 
   @override
@@ -160,6 +155,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
 
   Future<bool> _ensureVideoInitialized() async {
     if (_isVideoInitialized) return true;
+    if (!_hasValidTrailer) return false;
 
     final trailerUrl = _directPreviewUrl(widget.movie.trailerUrl);
     if (trailerUrl == null) return false;
@@ -186,6 +182,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
           if (_activePreviewState == this) {
             _activePreviewState = null;
           }
+          if (mounted) setState(() {});
         }));
 
       SecurityDebugLog.event(
@@ -205,6 +202,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
     } catch (e) {
       await player.dispose();
       _disposeVideoController();
+      if (mounted) setState(() {});
       return false;
     }
   }
@@ -251,6 +249,18 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
   void didUpdateWidget(covariant ContinueWatchMovieCard oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    final movieChanged = oldWidget.movie.id != widget.movie.id ||
+        oldWidget.movie.trailerUrl != widget.movie.trailerUrl;
+
+    if (movieChanged) {
+      _playDelayTimer?.cancel();
+      _stopPreview();
+      _disposeVideoController();
+      if (_activePreviewState == this) {
+        _activePreviewState = null;
+      }
+    }
+
     if (oldWidget.enableTrailerPreview != widget.enableTrailerPreview) {
       oldWidget.activeIndexListenable
           ?.removeListener(_handleActiveIndexChanged);
@@ -268,14 +278,8 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
           ?.removeListener(_handleActiveIndexChanged);
       widget.activeIndexListenable?.addListener(_handleActiveIndexChanged);
       _handleActiveIndexChanged();
-    } else if (widget.enableTrailerPreview && oldWidget.index != widget.index) {
+    } else if (widget.enableTrailerPreview && (oldWidget.index != widget.index || movieChanged)) {
       _handleActiveIndexChanged();
-    }
-
-    if (oldWidget.movie.trailerUrl != widget.movie.trailerUrl) {
-      _playDelayTimer?.cancel();
-      _stopPreview();
-      _disposeVideoController();
     }
   }
 
@@ -298,7 +302,9 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
     setState(() => _isHovered = hovering);
 
     if (hovering) {
-      _schedulePreview();
+      if (_hasValidTrailer) {
+        _schedulePreview();
+      }
     } else {
       _playDelayTimer?.cancel();
       _stopPreview();
@@ -312,7 +318,8 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
     if (!widget.enableTrailerPreview) return;
 
     final activeIndex = widget.activeIndexListenable?.value;
-    final shouldAutoPlay = _isAutoPlayDevice &&
+    final shouldAutoPlay = _hasValidTrailer &&
+        _isAutoPlayDevice &&
         widget.index != null &&
         activeIndex != null &&
         activeIndex == widget.index;
@@ -349,6 +356,7 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
   }
 
   void _schedulePreview() {
+    if (!widget.enableTrailerPreview || !_hasValidTrailer) return;
     if (_playDelayTimer != null) return;
     if (_isStartingPreview || _isPreviewPlaying) return;
     if (!_isPlayTriggerActive) return;
@@ -375,42 +383,50 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
   }
 
   bool get _isPlayTriggerActive {
-    return _isHovered || _isAutoPlayActive;
+    return widget.enableTrailerPreview &&
+        _hasValidTrailer &&
+        (_isHovered || _isAutoPlayActive);
   }
 
   Future<void> _startPreviewIfEligible() async {
     if (!mounted) return;
+    if (!_hasValidTrailer) return;
     if (!_isPlayTriggerActive) return;
     if (_isStartingPreview || _isPreviewPlaying) return;
 
     _isStartingPreview = true;
     try {
-      _activatePreview();
-
       final ready = await _ensureVideoInitialized();
       if (!ready || !mounted) {
         if (_activePreviewState == this) {
           _activePreviewState = null;
         }
         _stopPreview();
+        if (mounted) setState(() {});
         return;
       }
 
-      if (!_isPlayTriggerActive) {
+      if (!_isPlayTriggerActive || !_hasValidTrailer) {
         _stopPreview();
         return;
       }
 
+      _activatePreview();
+
       _ensureMuted();
 
       await _previewPlayer!.play();
-      if (!mounted) return;
+      if (!mounted || _activePreviewState != this) {
+        _stopPreview();
+        return;
+      }
       setState(() => _isPreviewPlaying = true);
     } catch (e) {
       _stopPreview();
       if (_activePreviewState == this) {
         _activePreviewState = null;
       }
+      if (mounted) setState(() {});
     } finally {
       _isStartingPreview = false;
     }
@@ -545,7 +561,11 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
 
   Widget _buildMediaPreview(
       String? posterUrl, ThemeData theme, Content content, bool showPreview) {
-    if (showPreview && _isVideoInitialized && _videoController != null) {
+    if (_hasValidTrailer &&
+        showPreview &&
+        _isVideoInitialized &&
+        _videoController != null &&
+        _previewPlayer != null) {
       return Container(
         color: Colors.black,
         child: Stack(
@@ -851,6 +871,30 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
       return;
     }
 
+    final isSeries = ContentType.isSeries(contentToPlay.type);
+    final episodeId = contentToPlay.episodeId ?? movie.episodeId;
+    final seasonId = contentToPlay.seasonId ?? movie.seasonId;
+
+    if (isSeries && (episodeId == null || episodeId <= 0)) {
+      await _disposePreviewBeforeSecurePlayback();
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SeriesDetailsPage(
+            seriesId: contentToPlay.id ?? movie.id!,
+            content: contentToPlay,
+          ),
+        ),
+      ).then((_) {
+        if (!mounted) return;
+        context
+            .read<DashboardProvider>()
+            .getContinueWatchedMovieList("SERIES");
+      });
+      return;
+    }
+
     await _disposePreviewBeforeSecurePlayback();
     if (!mounted) return;
     Navigator.push(
@@ -859,9 +903,9 @@ class _ContinueWatchMovieCardState extends State<ContinueWatchMovieCard> {
         builder: (_) => PlayMediaPage(
           videoUrl: contentUrl!,
           content: contentToPlay,
-          seasonIndex: contentToPlay.seasonId ?? 0,
-          episodeIndex: contentToPlay.episodeId ?? 0,
-          seasons: contentToPlay.type?.toLowerCase() == "series" ? [] : null,
+          seasonIndex: seasonId,
+          episodeIndex: episodeId,
+          seasons: isSeries ? [] : null,
         ),
       ),
     ).then((_) {

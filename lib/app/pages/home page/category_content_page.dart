@@ -122,7 +122,7 @@ class _CategoryContentPageState extends State<CategoryContentPage>
     int? index;
     double bestVisibility = 0;
     for (var candidate = first; candidate <= last; candidate++) {
-      if (!(_contents[candidate].trailerUrl?.trim().isNotEmpty ?? false)) {
+      if (!_contents[candidate].hasValidTrailer) {
         continue;
       }
       final candidateRow = (candidate / crossCount).floor();

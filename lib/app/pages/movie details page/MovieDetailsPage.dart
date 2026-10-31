@@ -168,6 +168,11 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
 
     final sanitizedUrl = Uri.encodeFull(contentUrl);
 
+    _stopHeroTrailer();
+    _trailerController.pause?.call();
+    _trailerController.stopAudio?.call();
+    _teaserController.pause?.call();
+    _teaserController.stopAudio?.call();
     await _trailerController.disposePlayer?.call();
     await _teaserController.disposePlayer?.call();
     if (!mounted) return;

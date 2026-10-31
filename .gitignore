@@ -60,3 +60,7 @@ FilmyTell_LoadTesting/
 artifacts/
 *.apk
 *.aab
+
+# Local release signing files
+/android/key.properties
+/filmytell-keystore.jks

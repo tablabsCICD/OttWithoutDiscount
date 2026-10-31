@@ -1,3 +1,5 @@
+import 'package:ott/app/core/utils/direct_trailer_source.dart';
+
 class Content {
   int? id;
   String? title;
@@ -93,6 +95,9 @@ class Content {
     if (teaser != null && teaser.isNotEmpty) return teaser;
     return trailerUrl;
   }
+
+  /// Returns whether this content has a valid, non-empty, playable trailer URL.
+  bool get hasValidTrailer => DirectTrailerSource.hasValidTrailer(trailerUrl);
 
   factory Content.fromJson(Map<String, dynamic> json) => Content(
         id: _asInt(json['id']),
@@ -192,8 +197,8 @@ class Content {
         watchedSeconds: _asInt(json['watchedSeconds']),
         watchedPercentage: _asInt(json['watchedPercentage']),
 
-        seasonId: _asInt(json['seasonId']),
-        episodeId: _asInt(json['episodeId']),
+        seasonId: _asInt(json['seasonId'] ?? json['season_id'] ?? json['activeSeasonId']),
+        episodeId: _asInt(json['episodeId'] ?? json['episode_id'] ?? json['activeEpisodeId'] ?? json['epId']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -308,6 +313,18 @@ String? _contentUrlFromJson(Map<String, dynamic> json) {
     'movie_url',
     'movie_file',
     'movie_file_url',
+    'playbackUrl',
+    'playback_url',
+    'hlsUrl',
+    'hls_url',
+    'streamUrl',
+    'stream_url',
+    'mediaUrl',
+    'media_url',
+    'masterUrl',
+    'master_url',
+    'manifestUrl',
+    'manifest_url',
     'fileUrl',
     'file_url',
     'url',

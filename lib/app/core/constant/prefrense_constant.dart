@@ -6,4 +6,8 @@ class SharedPreferencesConstant {
   static const String currentSessionRecordId = "currentSessionRecordId";
   static const String pendingReferralCode = "pendingReferralCode";
   static const String hasCheckedDeferredInstallReferrer = "hasCheckedDeferredInstallReferrer";
+  static const String pendingGiftCode = "pendingGiftCode";
+  static const String hasCheckedDeferredGiftInstall = "hasCheckedDeferredGiftInstall";
+  static const String pendingDeepLinkUri = "pendingDeepLinkUri";
+  static const String hasCheckedDeferredContentInstall = "hasCheckedDeferredContentInstall";
 }

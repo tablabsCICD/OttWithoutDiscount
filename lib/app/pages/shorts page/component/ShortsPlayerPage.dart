@@ -340,7 +340,7 @@ class _ShortsPlayerPageState extends State<ShortsPlayerPage>
     try {
       await player.open(
         Media(
-          authorization.playbackUrl,
+          authorization.urlToPlay,
           httpHeaders: authorization.httpHeaders,
         ),
         play: true,

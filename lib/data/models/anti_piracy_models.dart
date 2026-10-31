@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum DeviceIntegrityState { verified, unknown }
 
 class DeviceIntegrityStatus {
@@ -244,6 +246,18 @@ class SignedPlaybackResponse {
   final List<SecureSubtitleTrack> subtitleTracks;
   final String? _cookieHeader;
 
+  String get urlToPlay {
+    final signed = signedUrl.trim();
+    if (signed.isNotEmpty) {
+      if (authorizationType == cloudFrontSignedUrl ||
+          signed.contains('?') ||
+          playbackUrl.trim().isEmpty) {
+        return signed;
+      }
+    }
+    return playbackUrl.trim().isNotEmpty ? playbackUrl.trim() : signed;
+  }
+
   String get cookieHeader => _cookieHeader?.trim().isNotEmpty == true
       ? _cookieHeader!.trim()
       : requiredCookieNames
@@ -251,10 +265,17 @@ class SignedPlaybackResponse {
           .map((name) => '$name=${cookies[name]}')
           .join('; ');
 
-  Map<String, String> get httpHeaders =>
-      authorizationType == cloudFrontSignedCookies
-          ? Map.unmodifiable({'Cookie': cookieHeader})
-          : const {};
+  Map<String, String> get httpHeaders {
+    if (authorizationType != cloudFrontSignedCookies) {
+      return const {};
+    }
+    if (kIsWeb) {
+      // Browsers forbid setting the 'Cookie' header programmatically in
+      // XMLHttpRequest / fetch (DOMException). Web playback relies on signed URL query tokens.
+      return const {};
+    }
+    return Map.unmodifiable({'Cookie': cookieHeader});
+  }
 
   bool get isValid => isValidAt(DateTime.now().toUtc());
 
@@ -283,22 +304,30 @@ class SignedPlaybackResponse {
     DateTime? now,
     String? platform,
   }) {
-    final playbackUrl = (json['playbackUrl'] ?? '').toString().trim();
-    final uri = Uri.tryParse(playbackUrl);
+    var playbackUrl = (json['playbackUrl'] ?? '').toString().trim();
+    final signedUrl = (json['signedUrl'] ?? json['url'] ?? '').toString().trim();
+    if (playbackUrl.isEmpty && signedUrl.isNotEmpty) {
+      playbackUrl = signedUrl.contains('?') ? signedUrl.split('?').first : signedUrl;
+    }
+    final effectiveUrl = playbackUrl.isNotEmpty ? playbackUrl : signedUrl;
+    final uri = Uri.tryParse(effectiveUrl);
     if (uri == null ||
         (uri.scheme != 'https' && uri.scheme != 'http') ||
         uri.host.isEmpty) {
       throw const FormatException('Invalid secure playback URL.');
     }
 
-    final signedUrl = (json['signedUrl'] ?? '').toString().trim();
     var authorizationType =
         (json['authorizationType'] ?? '').toString().trim().toUpperCase();
     final rawCookieHeader = (json['cookieHeader'] ?? '').toString().trim();
     if (authorizationType.isEmpty) {
-      authorizationType = platform == 'ANDROID' && rawCookieHeader.isNotEmpty
+      authorizationType = (platform == 'ANDROID' || platform == 'IOS') && rawCookieHeader.isNotEmpty
           ? cloudFrontSignedCookies
           : cloudFrontSignedUrl;
+    } else if (authorizationType.contains('COOKIE')) {
+      authorizationType = cloudFrontSignedCookies;
+    } else {
+      authorizationType = cloudFrontSignedUrl;
     }
     if (authorizationType != cloudFrontSignedCookies &&
         authorizationType != cloudFrontSignedUrl) {
@@ -325,27 +354,50 @@ class SignedPlaybackResponse {
       }
     }
 
-    final sessionId = (json['sessionId'] ?? '').toString().trim();
+    var sessionId = (json['sessionId'] ?? json['id'] ?? '').toString().trim();
     if (sessionId.isEmpty) {
-      throw const FormatException('Missing secure playback session.');
+      sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
     }
 
-    final rawEpoch = json['expiresAtEpochSeconds'];
-    final epochNumber =
-        rawEpoch is num ? rawEpoch : num.tryParse(rawEpoch?.toString() ?? '');
-    final expiresAtEpochSeconds = epochNumber?.toInt() ?? 0;
+    final rawEpoch = json['expiresAtEpochSeconds'] ??
+        json['expiresAt'] ??
+        json['expires'] ??
+        json['expiry'] ??
+        json['expiration'];
     DateTime? expiresAt;
-    if (expiresAtEpochSeconds > 0) {
-      try {
-        expiresAt = DateTime.fromMillisecondsSinceEpoch(
-          expiresAtEpochSeconds * 1000,
-          isUtc: true,
-        );
-      } on ArgumentError {
-        expiresAt = null;
+    int expiresAtEpochSeconds = 0;
+    if (rawEpoch is num) {
+      final val = rawEpoch.toInt();
+      if (val > 100000000000) {
+        expiresAt = DateTime.fromMillisecondsSinceEpoch(val, isUtc: true);
+        expiresAtEpochSeconds = val ~/ 1000;
+      } else {
+        expiresAt = DateTime.fromMillisecondsSinceEpoch(val * 1000, isUtc: true);
+        expiresAtEpochSeconds = val;
+      }
+    } else if (rawEpoch is String) {
+      final asNum = num.tryParse(rawEpoch);
+      if (asNum != null) {
+        final val = asNum.toInt();
+        if (val > 100000000000) {
+          expiresAt = DateTime.fromMillisecondsSinceEpoch(val, isUtc: true);
+          expiresAtEpochSeconds = val ~/ 1000;
+        } else {
+          expiresAt = DateTime.fromMillisecondsSinceEpoch(val * 1000, isUtc: true);
+          expiresAtEpochSeconds = val;
+        }
+      } else {
+        expiresAt = DateTime.tryParse(rawEpoch)?.toUtc();
+        if (expiresAt != null) {
+          expiresAtEpochSeconds = expiresAt.millisecondsSinceEpoch ~/ 1000;
+        }
       }
     }
-    if (expiresAt == null ||
+
+    if (rawEpoch == null) {
+      expiresAt = (now ?? DateTime.now()).toUtc().add(const Duration(minutes: 10));
+      expiresAtEpochSeconds = expiresAt.millisecondsSinceEpoch ~/ 1000;
+    } else if (expiresAt == null ||
         !expiresAt.isAfter((now ?? DateTime.now()).toUtc())) {
       throw const FormatException('Secure playback authorization has expired.');
     }

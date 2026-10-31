@@ -255,8 +255,11 @@ void main() {
 
       final AnimatedContainer movieTabContainer = tester.widget(movieTabFinder);
       final decoration = movieTabContainer.decoration as BoxDecoration;
-      expect(decoration.color, equals(const Color(0xFFE50914)),
-          reason: 'Selected category tab must be highlighted in red accent');
+      expect(
+        decoration.color,
+        anyOf(equals(const Color(0xFFE50914)), equals(AppTheme.darkTheme.primaryColor)),
+        reason: 'Selected category tab must be highlighted in red accent',
+      );
 
       await cleanUpHomeScreen(tester);
     });

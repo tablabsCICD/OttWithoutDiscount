@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -19,10 +20,12 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Discover and stream movies, series, mini-series and other video entertainment with Filmytell OTT.">
+  <meta name="description"
+    content="Discover and stream movies, series, mini-series and other video entertainment with Filmytell OTT.">
   <link rel="canonical" href="https://filmytell.com/">
   <meta property="og:title" content="Filmytell OTT">
-  <meta property="og:description" content="Discover and stream digital entertainment across supported devices with Filmytell.">
+  <meta property="og:description"
+    content="Discover and stream digital entertainment across supported devices with Filmytell.">
   <meta property="og:site_name" content="Filmytell">
   <meta property="og:url" content="https://filmytell.com/">
   <meta property="og:type" content="website">
@@ -37,11 +40,161 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png" />
 
   <title>Filmytell — Movies, Series and Mini-Series</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- HLS.js for cross-browser HLS streaming (Chrome, Firefox, Edge) -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+  <script>
+    (function () {
+      function hookHlsForVideo(video) {
+        if (!video || video.__hlsHooked) return;
+        video.__hlsHooked = true;
+
+        var currentHls = null;
+        function destroyHls() {
+          if (currentHls) {
+            try { currentHls.destroy(); } catch (e) { }
+            currentHls = null;
+          }
+        }
+
+        function handleSrc(src) {
+          if (!src || typeof src !== 'string') return;
+          var isHls = src.indexOf('.m3u8') !== -1;
+          if (!isHls) {
+            destroyHls();
+            return;
+          }
+
+          // Native HLS support (Safari / iOS WebKit)
+          var canPlayNative = video.canPlayType && video.canPlayType('application/vnd.apple.mpegurl');
+          if (canPlayNative === 'probably' || canPlayNative === 'maybe') {
+            return;
+          }
+
+          if (window.Hls && window.Hls.isSupported()) {
+            destroyHls();
+
+            // Extract master query string (for signed URL query parameter propagation)
+            var masterQuery = "";
+            var qIndex = src.indexOf('?');
+            if (qIndex !== -1) {
+              masterQuery = src.substring(qIndex + 1);
+            }
+
+            var hls = new window.Hls({
+              enableWorker: true,
+              lowLatencyMode: false,
+              backBufferLength: 60,
+              xhrSetup: function (xhr, url) {
+                // If segment or subplaylist URL does not have query params, append master query params
+                if (masterQuery && url.indexOf('?') === -1 && (url.indexOf('.m3u8') !== -1 || url.indexOf('.ts') !== -1 || url.indexOf('.m4s') !== -1)) {
+                  try {
+                    xhr.open('GET', url + '?' + masterQuery, true);
+                  } catch (e) { }
+                }
+              }
+            });
+            currentHls = hls;
+
+            hls.attachMedia(video);
+            hls.on(window.Hls.Events.MEDIA_ATTACHED, function () {
+              hls.loadSource(src);
+            });
+
+            hls.on(window.Hls.Events.ERROR, function (event, data) {
+              if (data.fatal) {
+                switch (data.type) {
+                  case window.Hls.ErrorTypes.NETWORK_ERROR:
+                    console.warn('[Filmytell HLS] Network error encountered, recovering...', data);
+                    hls.startLoad();
+                    break;
+                  case window.Hls.ErrorTypes.MEDIA_ERROR:
+                    console.warn('[Filmytell HLS] Media error encountered, recovering...', data);
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    console.error('[Filmytell HLS] Fatal error:', data);
+                    destroyHls();
+                    break;
+                }
+              }
+            });
+          }
+        }
+
+        // Intercept src attribute property setter on this element
+        try {
+          var originalSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+          if (originalSrcDescriptor && originalSrcDescriptor.set) {
+            var nativeSet = originalSrcDescriptor.set;
+            Object.defineProperty(video, 'src', {
+              configurable: true,
+              enumerable: true,
+              get: function () {
+                return originalSrcDescriptor.get.call(this);
+              },
+              set: function (val) {
+                nativeSet.call(this, val);
+                handleSrc(val);
+              }
+            });
+          }
+        } catch (e) { }
+
+        // Also observe attribute mutations as fallback
+        try {
+          var observer = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+              if (mutations[i].attributeName === 'src') {
+                handleSrc(video.getAttribute('src'));
+              }
+            }
+          });
+          observer.observe(video, { attributes: true, attributeFilter: ['src'] });
+        } catch (e) { }
+
+        if (video.src) {
+          handleSrc(video.src);
+        }
+      }
+
+      // Observe DOM for dynamic video element creation by flutter web
+      if (typeof MutationObserver !== 'undefined') {
+        var domObserver = new MutationObserver(function (mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var added = mutations[i].addedNodes;
+            for (var j = 0; j < added.length; j++) {
+              var node = added[j];
+              if (node.nodeType === 1) {
+                if (node.tagName === 'VIDEO') {
+                  hookHlsForVideo(node);
+                } else if (node.querySelectorAll) {
+                  var vids = node.querySelectorAll('video');
+                  for (var k = 0; k < vids.length; k++) {
+                    hookHlsForVideo(vids[k]);
+                  }
+                }
+              }
+            }
+          }
+        });
+        domObserver.observe(document.documentElement, { childList: true, subtree: true });
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        var existing = document.querySelectorAll('video');
+        for (var i = 0; i < existing.length; i++) {
+          hookHlsForVideo(existing[i]);
+        }
+      });
+    })();
+  </script>
 </head>
+
 <body>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
@@ -56,8 +209,16 @@
           /[?&](referralCode|referral_code|ref|code)=/i.test(search) ||
           /[?&](referralCode|referral_code|ref|code)=/i.test(hash);
 
+        var isGiftPath = /^\/(?:ott\/)?(?:share\/)?gift(\/|$)/i.test(pathname) ||
+          /^\/#\/(?:share\/)?gift(\/|$)/i.test(hash) ||
+          /[?&](giftCode|gift_code|couponCode|coupon_code)=/i.test(search) ||
+          /[?&](giftCode|gift_code|couponCode|coupon_code)=/i.test(hash);
+
         var contentMatch = pathname.match(/^\/(?:ott\/)?(?:share\/)?(movie|series|miniseries|mini-series|short-film|shortfilm|short|shorts)\/(\d+)/i) ||
           hash.match(/^\/#\/(?:share\/)?(movie|series|miniseries|mini-series|short-film|shortfilm|short|shorts)\/(\d+)/i);
+
+        var giftMatch = pathname.match(/^\/(?:ott\/)?(?:share\/)?gift\/([A-Za-z0-9_-]+)/i) ||
+          hash.match(/^\/#\/(?:share\/)?gift\/([A-Za-z0-9_-]+)/i);
 
         var searchParams = new URLSearchParams(search);
         if (!searchParams.has("referralCode") && hash.indexOf("?") !== -1) {
@@ -70,6 +231,19 @@
           searchParams.get("code") ||
           "";
         referralCode = referralCode.trim();
+
+        var giftCode = "";
+        if (giftMatch && giftMatch[1]) {
+          giftCode = giftMatch[1].trim();
+        } else {
+          giftCode = searchParams.get("giftCode") ||
+            searchParams.get("gift_code") ||
+            searchParams.get("couponCode") ||
+            searchParams.get("coupon_code") ||
+            searchParams.get("gift") ||
+            "";
+          giftCode = giftCode.trim();
+        }
 
         var preferWeb = searchParams.get("web") === "true" ||
           searchParams.get("continue") === "web" ||
@@ -139,18 +313,96 @@
           }
         }
 
+        if (isGiftPath && !preferWeb) {
+          if (isAndroid) {
+            var targetPlayStoreUrl = playStoreBase;
+            if (giftCode.length >= 2) {
+              var referrerPayload = "gift_code=" + encodeURIComponent(giftCode);
+              targetPlayStoreUrl += "&referrer=" + encodeURIComponent(referrerPayload);
+            }
+            window.location.replace(targetPlayStoreUrl);
+            return;
+          }
+
+          if (isIOS) {
+            if (!giftCode) {
+              window.location.replace(appStoreUrl);
+              return;
+            }
+            // Safari requires a user gesture. Display smart copy panel before redirecting.
+            var panel = document.createElement("section");
+            panel.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:radial-gradient(circle at 50% 20%, #1e1014 0%, #0a0a0c 100%);color:white;padding:32px 20px;overflow:auto;font:16px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;box-sizing:border-box";
+            var heading = document.createElement("h1");
+            heading.textContent = "You've Received a Filmytell Gift!";
+            heading.style.cssText = "font-size:24px;font-weight:700;margin:0 0 12px 0;color:#ffffff";
+            var message = document.createElement("p");
+            message.textContent = "Gift Code: " + giftCode + "\n\nCopy your gift code, then install Filmytell from the App Store. When you first open the app, your gift will be automatically detected.";
+            message.style.cssText = "color:rgba(255,255,255,0.8);line-height:1.5;max-width:360px;margin:0 0 20px 0;white-space:pre-line";
+            var button = document.createElement("button");
+            button.textContent = "Copy gift & install";
+            button.style.cssText = "padding:16px 28px;font:inherit;font-weight:600;font-size:16px;border-radius:14px;border:0;background:linear-gradient(135deg, #e53741 0%, #b81d24 100%);color:white;cursor:pointer;box-shadow:0 4px 16px rgba(229,55,65,0.4);width:100%;max-width:320px";
+            var status = document.createElement("p");
+            status.setAttribute("role", "status");
+            status.style.cssText = "color:#ff8585;font-size:14px;margin:12px 0;min-height:20px;max-width:320px";
+            var giftLink = "https://filmytell.com/gift/" + encodeURIComponent(giftCode);
+            button.onclick = async function () {
+              button.disabled = true;
+              try {
+                if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+                  await window.navigator.clipboard.writeText(giftLink);
+                }
+                window.location.assign(appStoreUrl);
+              } catch (_) {
+                status.textContent = "Could not copy automatically. You can install, then reopen your original gift link.";
+              } finally {
+                button.disabled = false;
+              }
+            };
+            var install = document.createElement("a");
+            install.href = appStoreUrl;
+            install.textContent = "Install without copying gift";
+            install.style.cssText = "color:rgba(255,255,255,0.6);font-size:14px;text-decoration:underline;margin-top:8px";
+            panel.append(heading, message, button, status, install);
+            document.body.appendChild(panel);
+            return;
+          }
+        }
+
         // On mobile for content links, if autoRedirect is requested or app not installed
         if (contentMatch && !preferWeb) {
           var contentType = contentMatch[1].toLowerCase();
           var contentId = contentMatch[2];
-          var contentReferrer = "content_type=" + encodeURIComponent(contentType) + "&content_id=" + encodeURIComponent(contentId);
+          var canonicalUrl = "https://filmytell.com/" + encodeURIComponent(contentType) + "/" + encodeURIComponent(contentId);
+          var contentReferrer = "content_type=" + encodeURIComponent(contentType) +
+            "&content_id=" + encodeURIComponent(contentId) +
+            "&url=" + encodeURIComponent(canonicalUrl);
           if (referralCode.length >= 2) {
             contentReferrer += "&referralCode=" + encodeURIComponent(referralCode);
           }
 
+          var autoRedirect = searchParams.get("redirect") === "store" ||
+            searchParams.get("store") === "true" ||
+            searchParams.get("app") === "download";
+
+          if (autoRedirect) {
+            if (isAndroid) {
+              var targetPlayStoreUrl = playStoreBase + "&referrer=" + encodeURIComponent(contentReferrer);
+              window.location.replace(targetPlayStoreUrl);
+              return;
+            }
+
+            if (isIOS) {
+              if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+                window.navigator.clipboard.writeText(canonicalUrl).catch(function () { });
+              }
+              window.location.replace(appStoreUrl);
+              return;
+            }
+          }
+
           // If iOS, copy deep link to clipboard for instant detection upon app install
           if (isIOS && window.navigator.clipboard && window.navigator.clipboard.writeText) {
-            window.navigator.clipboard.writeText(window.location.href).catch(function () {});
+            window.navigator.clipboard.writeText(canonicalUrl).catch(function () { });
           }
         }
       } catch (e) {
@@ -218,8 +470,8 @@
           resolve({
             success: false,
             message: error && error.message
-                ? error.message
-                : "Unable to open Razorpay checkout."
+              ? error.message
+              : "Unable to open Razorpay checkout."
           });
         }
       });
@@ -227,4 +479,5 @@
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
+
 </html>

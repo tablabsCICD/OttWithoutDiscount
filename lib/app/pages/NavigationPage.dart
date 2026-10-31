@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ott/app/core/constant/image_constant.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
+import 'package:ott/app/core/services/gift_deep_link_service.dart';
 import 'package:ott/app/core/services/session_manager.dart';
 import 'package:ott/app/core/utils/image_url_utils.dart';
 import 'package:ott/app/core/utils/sharepreferences.dart';
@@ -117,6 +118,7 @@ class _NavigationPageState extends State<NavigationPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       DeepLinkService.instance.consumePendingNavigation();
+      GiftDeepLinkService.instance.checkAndProcessPendingGift(context);
       final tourProvider = context.read<OnboardingTourProvider>();
       if (widget.startAppTourOnHome) {
         tourProvider.replayTour(context: context);

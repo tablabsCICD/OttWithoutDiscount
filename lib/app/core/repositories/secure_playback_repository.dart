@@ -65,10 +65,25 @@ class SecurePlaybackRepository {
         'Secure playback is not configured for this platform.',
       );
     }
-    SecurityDebugLog.event('DEVICE', 'Registering device before playback.');
-    await _apiClient.registerDevice(current);
-    _registrationKnown = true;
-    SecurityDebugLog.event('DEVICE', 'Device registration succeeded.');
+    try {
+      SecurityDebugLog.event('DEVICE', 'Registering device before playback.');
+      await _apiClient.registerDevice(current);
+      _registrationKnown = true;
+      SecurityDebugLog.event('DEVICE', 'Device registration succeeded.');
+    } catch (e) {
+      if (current.deviceType == 'WEB' ||
+          (e is SecurePlaybackException &&
+              e.failure != SecurePlaybackFailure.accessDenied &&
+              e.failure != SecurePlaybackFailure.unauthenticated)) {
+        SecurityDebugLog.event(
+          'DEVICE',
+          'Device registration note: $e; proceeding to signed playback.',
+        );
+        _registrationKnown = true;
+      } else {
+        rethrow;
+      }
+    }
   }
 
   void markRegistrationUnknown() {
@@ -97,10 +112,12 @@ class SecurePlaybackRepository {
       'Secure playback preparation started; original media URL remains redacted.',
     );
     final source = Uri.tryParse(playbackUrl.trim());
-    if (source == null || source.scheme != 'https' || source.host.isEmpty) {
+    if (source == null ||
+        (source.scheme != 'https' && source.scheme != 'http') ||
+        source.host.isEmpty) {
       throw const SecurePlaybackException(
         SecurePlaybackFailure.invalidResponse,
-        'This content does not have a secure HTTPS playback source.',
+        'This content does not have a secure playback source.',
       );
     }
     if (contentId.trim().isEmpty) {

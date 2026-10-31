@@ -393,7 +393,7 @@ class _HomePageState extends State<HomePage>
 
       final hasTrailer = items != null &&
           candidate < items.length &&
-          (items[candidate].trailerUrl?.trim().isNotEmpty ?? false);
+          items[candidate].hasValidTrailer;
       if (!hasTrailer) {
         continue;
       }
@@ -437,7 +437,7 @@ class _HomePageState extends State<HomePage>
   int? _lastPlayableIndex(List<Content>? items) {
     if (items == null || items.isEmpty) return null;
     for (int index = items.length - 1; index >= 0; index--) {
-      if (items[index].trailerUrl?.trim().isNotEmpty ?? false) {
+      if (items[index].hasValidTrailer) {
         return index;
       }
     }

@@ -17,6 +17,7 @@ import 'package:ott/presentation/web_landing/screens/web_landing_screen.dart';
 import '../../pages/onboarding pages/SplashScreen.dart';
 import '../../pages/sign in page/LoginCard.dart';
 import 'package:ott/app/core/services/referral_service.dart';
+import 'package:ott/app/core/services/gift_deep_link_service.dart';
 import 'app_routes.dart';
 import 'web_navigation_routes.dart';
 
@@ -61,6 +62,7 @@ class RouteGenerator {
       final uri = Uri.tryParse(settings.name!);
       if (uri != null) {
         ReferralService.instance.captureFromUri(uri);
+        GiftDeepLinkService.instance.captureFromUri(uri);
         final pathLower = uri.path.trim().toLowerCase();
         if (pathLower == '/register' ||
             pathLower == 'register' ||
@@ -69,21 +71,33 @@ class RouteGenerator {
           return buildRoute(const LoginCard(), settings: settings);
         }
 
-        // Check if universal content URL (e.g. /movie/123, /series/456, /miniseries/789, /short-film/101)
+        // Check if universal content URL (e.g. /movie/123, /series/456, /miniseries/789, /short-film/101) or gift URL
         final targetUri = uri.hasScheme
             ? uri
-            : Uri.tryParse('https://${DeepLinkService.httpsHost}${uri.path.startsWith('/') ? '' : '/'}${uri.path}');
+            : Uri.tryParse('https://${DeepLinkService.httpsHost}${uri.path.startsWith('/') ? '' : '/'}${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}');
         if (targetUri != null) {
           final target = DeepLinkService.instance.parseTarget(targetUri);
-          if (target != null && target.id != null && target.id! > 0) {
-            if (kIsWeb) {
+          if (target != null) {
+            if (target.type == DeepLinkContentType.gift) {
+              final couponCode = target.couponCode;
+              if (couponCode != null) {
+                GiftDeepLinkService.instance.savePendingGiftCode(couponCode);
+              }
               return buildRoute(
-                ContentWebFallbackScreen(
-                  contentId: target.id!,
-                  contentType: target.type,
-                ),
+                const SplashScreen(),
                 settings: settings,
               );
+            }
+            if (target.id != null && target.id! > 0) {
+              if (kIsWeb) {
+                return buildRoute(
+                  ContentWebFallbackScreen(
+                    contentId: target.id!,
+                    contentType: target.type,
+                  ),
+                  settings: settings,
+                );
+              }
             }
           }
         }

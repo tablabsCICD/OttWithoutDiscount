@@ -63,11 +63,11 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            require(hasReleaseKeystore) {
+                "Release signing configuration is missing or incomplete. Check android/key.properties."
             }
+
+            signingConfig = signingConfigs.getByName("release")
 
             // ✅ Enabled R8 obfuscation & resource shrinking (generates mapping.txt)
             isMinifyEnabled = true

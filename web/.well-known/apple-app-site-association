@@ -3,8 +3,21 @@
     "apps": [],
     "details": [
       {
+        "appIDs": [
+          "6783863260.com.filmytell.ott"
+        ],
+        "components": [
+          {
+            "/": "/*",
+            "comment": "Universal links for Filmytell"
+          }
+        ]
+      },
+      {
         "appID": "6783863260.com.filmytell.ott",
-        "paths": ["*"]
+        "paths": [
+          "*"
+        ]
       }
     ]
   }

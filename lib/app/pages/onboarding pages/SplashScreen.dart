@@ -8,6 +8,7 @@ import 'package:ott/app/core/constant/image_constant.dart';
 import 'package:ott/app/core/constant/app_constant.dart';
 import 'package:ott/app/core/services/app_update_service.dart';
 import 'package:ott/app/core/services/referral_service.dart';
+import 'package:ott/app/core/services/gift_deep_link_service.dart';
 import 'package:ott/app/pages/NavigationPage.dart';
 import 'package:ott/app/pages/onboarding pages/selectLanguagePage.dart';
 import 'package:ott/app/route/routes/web_navigation_routes.dart';
@@ -46,8 +47,10 @@ class _SplashScreenState extends State<SplashScreen> {
     final flowVersion = ++_flowVersion;
     final requestedPath = widget.initialNavigationRoute?.path ?? '/';
 
-    // Recover any deferred install referral code on cold start / first launch
+    // Recover any deferred install referral code, gift code, or content link on cold start / first launch
     unawaited(ReferralService.instance.checkDeferredInstallReferrer());
+    unawaited(GiftDeepLinkService.instance.checkDeferredGiftInstall());
+    unawaited(DeepLinkService.instance.checkDeferredContentInstall());
 
     final loggedIn =
         await _prefs.getBool(SharedPreferencesConstant.isUserLoggedIn);
@@ -119,8 +122,8 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && isLoggedIn) {
-        DeepLinkService.instance.consumePendingNavigation();
+      if (mounted) {
+        unawaited(DeepLinkService.instance.consumePendingNavigation());
       }
     });
   }

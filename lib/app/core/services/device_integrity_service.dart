@@ -17,9 +17,9 @@ class DeviceIntegrityService implements DeviceIntegrityChecker {
   Future<DeviceIntegrityStatus> checkIntegrity() async {
     if (kIsWeb) return const DeviceIntegrityStatus.unknown();
     try {
-      final result = await _channel.invokeMapMethod<String, dynamic>(
-        'deviceIntegrity',
-      );
+      final result = await _channel
+          .invokeMapMethod<String, dynamic>('deviceIntegrity')
+          .timeout(const Duration(milliseconds: 1000));
       if (result == null) return const DeviceIntegrityStatus.unknown();
       return DeviceIntegrityStatus(
         rooted: result['rooted'] == true ||

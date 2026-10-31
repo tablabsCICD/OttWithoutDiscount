@@ -13,6 +13,12 @@ class ReferralService {
   static const MethodChannel _installReferrerChannel =
       MethodChannel('com.filmytell.ott/install_referrer');
 
+  /// Builds a referral URL. Canonical domain is filmytell.com.
+  static String buildReferralUrl(String referralCode, {bool useCanonical = true}) {
+    final host = useCanonical ? 'filmytell.com' : 'filmytell.in';
+    return 'https://$host/register?referralCode=${Uri.encodeComponent(referralCode.trim())}';
+  }
+
   static bool isValidCode(String? rawCode) {
     if (rawCode == null) return false;
     final trimmed = rawCode.trim();

@@ -25,6 +25,7 @@ import 'package:ott/app/provider/themeProvider.dart';
 import 'package:ott/app/widgets/playback_watermark_overlay.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/app/widgets/video_skip_controls.dart';
+import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import '../../../provider/offline_download_provider.dart';
@@ -89,6 +90,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   bool _handlingEnd = false;
   Duration _lastSavedPosition = Duration.zero;
   bool _wakelockEnabled = false;
+  bool _firstFrameRendered = false;
   bool _isDisposed = false;
   bool _isExiting = false;
   int _setupToken = 0;
@@ -102,6 +104,8 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   bool _controlsVisible = true;
   bool _isSeeking = false;
   bool _resumeAfterLifecyclePause = false;
+  int? _currentSeasonId;
+  int? _currentEpisodeId;
   String? _offlineObjectUrl;
   Duration? _lastLoggedDuration;
   double _currentPlaybackSpeed = 1.0;
@@ -154,13 +158,17 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   }
 
   bool get _isSeries =>
-      widget.content?.type?.toLowerCase() == "series" &&
-      widget.seasons != null &&
-      widget.episodeIndex != null;
+      (_currentEpisodeId != null && _currentEpisodeId! > 0) ||
+      (widget.episodeIndex != null && widget.episodeIndex! > 0) ||
+      ContentType.isSeries(widget.content?.type) ||
+      ContentType.normalize(widget.content?.type) == ContentType.miniSeries ||
+      ContentType.normalize(widget.content?.type) == 'MINI_SERIES';
 
   @override
   void initState() {
     super.initState();
+    _currentSeasonId = widget.seasonIndex;
+    _currentEpisodeId = widget.episodeIndex;
     SecurityDebugLog.event(
       'ROUTE',
       'PlayMediaPage.initState reached from the Watch Movie route.',
@@ -264,10 +272,14 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   }
 
   void _addView() {
-    if (widget.content?.id == null || _isOfflinePlayback) return;
+    final contentId = widget.content?.id;
+    if (contentId == null || _isOfflinePlayback) return;
 
+    final activeEpisodeId = _currentEpisodeId ?? widget.episodeIndex;
     context.read<PlayMediaProvider>().addView(
-          mediaId: _isSeries ? widget.episodeIndex! : widget.content!.id!,
+          mediaId: _isSeries && activeEpisodeId != null && activeEpisodeId > 0
+              ? activeEpisodeId
+              : contentId,
           isSeries: _isSeries,
         );
   }
@@ -309,7 +321,14 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       return;
     }
 
-    final contentId = _isSeries ? widget.episodeIndex : widget.content?.id;
+    final isEpisode = _isSeries &&
+        ((_currentEpisodeId != null && _currentEpisodeId! > 0) ||
+            (widget.episodeIndex != null && widget.episodeIndex! > 0));
+    final contentId = isEpisode
+        ? ((_currentEpisodeId != null && _currentEpisodeId! > 0)
+            ? _currentEpisodeId
+            : widget.episodeIndex)
+        : widget.content?.id;
     if (contentId == null) {
       SecurityDebugLog.event(
         'FLOW',
@@ -357,7 +376,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     final path = fileUri?.scheme == 'file' ? fileUri!.toFilePath() : value;
 
     try {
-      return File(path).exists();
+      return await File(path).exists();
     } catch (_) {
       return false;
     }
@@ -378,15 +397,21 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       previous.dispose();
     }
     _currentRemotePlaybackUrl = sourceUrl;
+    final isEpisode = _isSeries &&
+        ((_currentEpisodeId != null && _currentEpisodeId! > 0) ||
+            (widget.episodeIndex != null && widget.episodeIndex! > 0));
+    final resolvedType = isEpisode
+        ? "EPISODE"
+        : (ContentType.normalize(widget.content?.type).isNotEmpty
+            ? ContentType.normalize(widget.content?.type)
+            : "MOVIE");
     final controller = SecurePlaybackController(
         contentId: contentId,
         originalPlaybackUrl: sourceUrl,
         country: _resolvePlaybackCountryCode(),
         mediaLoader: _loadSecureMedia,
         pausePlayer: _pauseActivePlayer,
-        type: widget.content!.type!.toLowerCase() == "series"
-            ? "EPISODE"
-            : widget.content!.type!);
+        type: resolvedType);
     _securePlaybackController = controller;
     controller.addListener(_onSecurePlaybackChanged);
     await controller.start();
@@ -422,8 +447,9 @@ class _PlayMediaPageState extends State<PlayMediaPage>
           ? 'Received refreshed playback authorization; reinitializing the player.'
           : 'Received platform playback authorization; initializing the player now.',
     );
-    final playbackUri = Uri.tryParse(authorization.playbackUrl);
-    _currentAuthorizedPlaybackUrl = authorization.playbackUrl;
+    final effectivePlaybackUrl = authorization.urlToPlay;
+    final playbackUri = Uri.tryParse(effectivePlaybackUrl);
+    _currentAuthorizedPlaybackUrl = effectivePlaybackUrl;
     _currentAuthorizedHttpHeaders = authorization.httpHeaders;
     SecurityDebugLog.diagnostic(
       'SIGNED_MEDIA_METADATA validUri=${playbackUri != null} '
@@ -454,7 +480,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     }
 
     await _setupPlayer(
-      authorization.playbackUrl,
+      effectivePlaybackUrl,
       httpHeaders: authorization.httpHeaders,
       diagnoseSignedHls: true,
       automaticAudioTrack: getAutomaticAudioTrack(authorization.audioTracks),
@@ -548,11 +574,16 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     if (_isDisposed || !mounted || token != _setupToken) return;
 
     final provider = context.read<PlayMediaProvider>();
-    final localResumeSeconds = provider.getLocalResume(
-      contentId: widget.content!.id!,
-      seasonId: _isSeries ? widget.seasonIndex : null,
-      episodeId: _isSeries ? widget.episodeIndex : null,
-    );
+    final activeEpisodeId = _currentEpisodeId ?? widget.episodeIndex;
+    final activeSeasonId = _currentSeasonId ?? widget.seasonIndex;
+    final contentId = widget.content?.id;
+    final localResumeSeconds = contentId != null
+        ? provider.getLocalResume(
+            contentId: contentId,
+            seasonId: _isSeries ? activeSeasonId : null,
+            episodeId: _isSeries ? activeEpisodeId : null,
+          )
+        : 0;
     final backendResumeSeconds = widget.content?.watchedSeconds ?? 0;
     final resumeSeconds = localResumeSeconds > backendResumeSeconds
         ? localResumeSeconds
@@ -614,6 +645,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     String url, {
     bool playFromFile = false,
     bool diagnoseSignedHls = false,
+    bool forceMediaKit = false,
     Map<String, String>? httpHeaders,
     SecureAudioTrack? automaticAudioTrack,
     SecureSubtitleTrack? automaticSubtitleTrack,
@@ -628,6 +660,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
         _playbackMessage = null;
         _controlsVisible = true;
         _isSeeking = false;
+        _firstFrameRendered = false;
       });
     }
 
@@ -646,12 +679,13 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       if (_isDisposed || !mounted || token != _setupToken) return;
     }
 
-    if (!kIsWeb &&
-        defaultTargetPlatform == TargetPlatform.android &&
-        diagnoseSignedHls &&
-        !playFromFile) {
-      await _setupAndroidSecureHlsPlayer(
+    if (!forceMediaKit &&
+        (kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      await _setupNativeVideoPlayer(
         url,
+        playFromFile: playFromFile,
         httpHeaders: httpHeaders ?? const {},
         token: token,
       );
@@ -715,9 +749,14 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       }
       // media_kit is the underlying playback engine; the route keeps the
       // existing fullscreen, resume, continue-watching and auto-next behavior.
+      final sanitizedHeaders = kIsWeb && httpHeaders != null
+          ? Map<String, String>.fromEntries(
+              httpHeaders.entries.where((e) => e.key.toLowerCase() != 'cookie'),
+            )
+          : httpHeaders;
       final media = Media(
         playFromFile && !kIsWeb ? _localFileMediaUri(url) : url,
-        httpHeaders: httpHeaders,
+        httpHeaders: sanitizedHeaders,
       );
       SecurityDebugLog.diagnostic(
         'MEDIA_KIT_MEDIA playerId=$playerId uri=${_safeMediaUrl(media.uri)} '
@@ -825,27 +864,42 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     await _resumeAndPlay(token);
   }
 
-  Future<void> _setupAndroidSecureHlsPlayer(
+  Future<void> _setupNativeVideoPlayer(
     String url, {
     required Map<String, String> httpHeaders,
     required int token,
+    bool playFromFile = false,
   }) async {
     final playerId = ++_nextPlayerId;
+    final platformName = kIsWeb ? 'web' : defaultTargetPlatform.name;
     final uri = Uri.parse(url);
     SecurityDebugLog.diagnostic(
-      'ANDROID_EXOPLAYER_CREATE playerId=$playerId '
-      'engine=Media3/ExoPlayer uri=${_safeProbeUrl(uri)} '
+      'NATIVE_PLAYER_CREATE playerId=$playerId platform=$platformName '
+      'playFromFile=$playFromFile uri=${_safeProbeUrl(uri)} '
       'headers=${httpHeaders.keys.toList()} '
       'cookieHeaderPresent=${httpHeaders['Cookie']?.isNotEmpty == true} '
       'cookieValuesRedacted=true',
     );
-    final controller = native_video.VideoPlayerController.networkUrl(
-      uri,
-      httpHeaders: Map<String, String>.unmodifiable(httpHeaders),
-      videoPlayerOptions: native_video.VideoPlayerOptions(
-        mixWithOthers: false,
-      ),
-    );
+    final native_video.VideoPlayerController controller;
+    if (playFromFile && !kIsWeb) {
+      controller = native_video.VideoPlayerController.file(
+        File(url),
+        videoPlayerOptions: native_video.VideoPlayerOptions(
+          mixWithOthers: false,
+        ),
+      );
+    } else {
+      final sanitizedHeaders = kIsWeb
+          ? const <String, String>{}
+          : Map<String, String>.unmodifiable(httpHeaders);
+      controller = native_video.VideoPlayerController.networkUrl(
+        uri,
+        httpHeaders: sanitizedHeaders,
+        videoPlayerOptions: native_video.VideoPlayerOptions(
+          mixWithOthers: false,
+        ),
+      );
+    }
     var lastPlaying = false;
     var lastBuffering = false;
     var lastError = '';
@@ -858,7 +912,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
         lastPlaying = value.isPlaying;
         lastBuffering = value.isBuffering;
         SecurityDebugLog.diagnostic(
-          'ANDROID_EXOPLAYER_STATE playerId=$playerId '
+          'NATIVE_PLAYER_STATE playerId=$playerId '
           'initialized=${value.isInitialized} playing=${value.isPlaying} '
           'buffering=${value.isBuffering} '
           'positionMs=${value.position.inMilliseconds}',
@@ -869,7 +923,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       if (value.hasError && error != lastError) {
         lastError = error;
         SecurityDebugLog.exception(
-          'ANDROID_EXOPLAYER_NATIVE playerId=$playerId',
+          'NATIVE_PLAYER_ERROR playerId=$playerId',
           error,
           StackTrace.current,
         );
@@ -888,17 +942,22 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       await controller.setVolume(1);
     } catch (error, stackTrace) {
       SecurityDebugLog.exception(
-        'ANDROID_EXOPLAYER_INITIALIZE playerId=$playerId fallback=media_kit',
+        'NATIVE_PLAYER_INITIALIZE playerId=$playerId fallback=${!kIsWeb}',
         error,
         stackTrace,
       );
       await controller.dispose();
       if (mounted && token == _setupToken) {
-        await _setupPlayer(
-          url,
-          httpHeaders: httpHeaders,
-          diagnoseSignedHls: false,
-        );
+        if (!kIsWeb) {
+          await _setupPlayer(
+            url,
+            playFromFile: playFromFile,
+            httpHeaders: httpHeaders,
+            forceMediaKit: true,
+          );
+        } else {
+          _showPlaybackError('Failed to load video');
+        }
       }
       return;
     }
@@ -909,7 +968,7 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     _androidSecurePlayer = controller;
     _activePlayerId = playerId;
     SecurityDebugLog.diagnostic(
-      'ANDROID_EXOPLAYER_INITIALIZED playerId=$playerId '
+      'NATIVE_PLAYER_INITIALIZED playerId=$playerId '
       'durationMs=${controller.value.duration.inMilliseconds} '
       'size=${controller.value.size.width}x${controller.value.size.height}',
     );
@@ -957,10 +1016,10 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       return;
     }
 
-    if (cookieHeader == null || cookieHeader.isEmpty) {
+    if ((cookieHeader == null || cookieHeader.isEmpty) && !uri.hasQuery) {
       SecurityDebugLog.event(
         'HLS_PROBE',
-        'CloudFront cookie header is missing; the protected request was not sent.',
+        'CloudFront authorization is missing; the protected request was not sent.',
       );
       return;
     }
@@ -968,8 +1027,10 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       final headers = {
         'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, */*',
         'Range': 'bytes=0-65535',
-        'Cookie': cookieHeader,
-        'User-Agent': 'FilmyTell/1.0',
+        if (cookieHeader != null && cookieHeader.isNotEmpty && !kIsWeb)
+          'Cookie': cookieHeader,
+        if (!kIsWeb)
+          'User-Agent': 'FilmyTell/1.0',
       };
       final master = await _getHlsProbeResource(
         stage: 'MASTER_PLAYLIST',
@@ -983,6 +1044,9 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       final childReference = _firstPlaylistReference(master);
       if (childReference != null) {
         mediaPlaylistUri = uri.resolve(childReference);
+        if (uri.hasQuery && !mediaPlaylistUri.hasQuery) {
+          mediaPlaylistUri = mediaPlaylistUri.replace(query: uri.query);
+        }
         final child = await _getHlsProbeResource(
           stage: 'CHILD_PLAYLIST',
           uri: mediaPlaylistUri,
@@ -1000,7 +1064,10 @@ class _PlayMediaPageState extends State<PlayMediaPage>
         );
         return;
       }
-      final segmentUri = mediaPlaylistUri.resolve(segmentReference);
+      var segmentUri = mediaPlaylistUri.resolve(segmentReference);
+      if (uri.hasQuery && !segmentUri.hasQuery) {
+        segmentUri = segmentUri.replace(query: uri.query);
+      }
       final segment = await _getHlsProbeBytes(
         stage: 'FIRST_SEGMENT',
         uri: segmentUri,
@@ -1177,11 +1244,16 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     await _player?.setVolume(100);
     await _androidSecurePlayer?.setVolume(1);
 
-    final localResumeSeconds = provider.getLocalResume(
-      contentId: widget.content!.id!,
-      seasonId: _isSeries ? widget.seasonIndex : null,
-      episodeId: _isSeries ? widget.episodeIndex : null,
-    );
+    final activeEpisodeId = _currentEpisodeId ?? widget.episodeIndex;
+    final activeSeasonId = _currentSeasonId ?? widget.seasonIndex;
+    final contentId = widget.content?.id;
+    final localResumeSeconds = contentId != null
+        ? provider.getLocalResume(
+            contentId: contentId,
+            seasonId: _isSeries ? activeSeasonId : null,
+            episodeId: _isSeries ? activeEpisodeId : null,
+          )
+        : 0;
     final backendResumeSeconds = widget.content?.watchedSeconds ?? 0;
     final resumeSeconds = localResumeSeconds > backendResumeSeconds
         ? localResumeSeconds
@@ -1243,14 +1315,25 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   }
 
   bool _isBenignPlayInterruption(Object error) {
-    if (!kIsWeb) return false;
     final message = error.toString().toLowerCase();
-    return message.contains('play() request was interrupted') &&
-        message.contains('call to pause()');
+    return message.contains('notallowederror') ||
+        message.contains("user didn't interact") ||
+        message.contains('interrupted by a call to pause') ||
+        (message.contains('play() request was interrupted') &&
+            (message.contains('call to pause()') ||
+                message.contains('new load request')));
   }
 
   void _handlePlayingChanged(bool isPlaying) {
     if (_isDisposed || !mounted) return;
+
+    if (isPlaying && !_firstFrameRendered) {
+      _firstFrameRendered = true;
+      SecurityDebugLog.event(
+        'PLAYER',
+        'First frame rendered; video and audio playback active for playerId=$_activePlayerId.',
+      );
+    }
 
     _securePlaybackController?.onPlayingChanged(isPlaying);
 
@@ -1306,7 +1389,8 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   }
 
   void _saveProgress() {
-    if (widget.content?.id == null) return;
+    final contentId = widget.content?.id;
+    if (contentId == null) return;
 
     final position = _youtubeController?.value.position ??
         _androidSecurePlayer?.value.position ??
@@ -1321,10 +1405,13 @@ class _PlayMediaPageState extends State<PlayMediaPage>
 
     _lastSavedPosition = position;
 
+    final activeEpisodeId = _currentEpisodeId ?? widget.episodeIndex;
+    final activeSeasonId = _currentSeasonId ?? widget.seasonIndex;
+
     context.read<PlayMediaProvider>().saveLocalResume(
-          contentId: widget.content!.id!,
-          seasonId: _isSeries ? widget.seasonIndex : null,
-          episodeId: _isSeries ? widget.episodeIndex : null,
+          contentId: contentId,
+          seasonId: _isSeries ? activeSeasonId : null,
+          episodeId: _isSeries ? activeEpisodeId : null,
           seconds: position.inSeconds,
         );
 
@@ -1334,9 +1421,9 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     if (_isOfflinePlayback) return;
 
     context.read<PlayMediaProvider>().saveContinueWatching(
-          contentId: widget.content!.id!,
-          seasonId: _isSeries ? widget.seasonIndex : null,
-          episodeId: _isSeries ? widget.episodeIndex : null,
+          contentId: contentId,
+          seasonId: _isSeries ? activeSeasonId : null,
+          episodeId: _isSeries ? activeEpisodeId : null,
           position: position,
           duration: duration,
         );
@@ -1345,17 +1432,21 @@ class _PlayMediaPageState extends State<PlayMediaPage>
   Future<void> _playNextEpisode() async {
     if (!_isSeries ||
         widget.seasons == null ||
-        widget.seasonIndex == null ||
-        widget.episodeIndex == null) {
+        widget.seasons!.isEmpty ||
+        (_currentSeasonId == null && widget.seasonIndex == null) ||
+        (_currentEpisodeId == null && widget.episodeIndex == null)) {
       return;
     }
 
     final provider = context.read<PlayMediaProvider>();
 
+    final seasonId = _currentSeasonId ?? widget.seasonIndex!;
+    final episodeId = _currentEpisodeId ?? widget.episodeIndex!;
+
     final next = provider.getNextEpisode(
       seasons: widget.seasons!,
-      seasonId: widget.seasonIndex!,
-      episodeId: widget.episodeIndex!,
+      seasonId: seasonId,
+      episodeId: episodeId,
     );
 
     if (next == null) {
@@ -1369,6 +1460,17 @@ class _PlayMediaPageState extends State<PlayMediaPage>
       _showPlaybackError('Video unavailable');
       return;
     }
+
+    int? nextSeasonId;
+    for (final s in widget.seasons!) {
+      if (s.episodes.any((e) => e.episodeId == next.episodeId)) {
+        nextSeasonId = s.seasonId;
+        break;
+      }
+    }
+    _currentSeasonId = nextSeasonId ?? seasonId;
+    _currentEpisodeId = next.episodeId;
+    _currentRemotePlaybackUrl = nextUrl;
 
     final youtubeId = _extractYoutubeId(nextUrl);
     if (youtubeId != null && youtubeId.isNotEmpty) {
@@ -1834,6 +1936,25 @@ class _PlayMediaPageState extends State<PlayMediaPage>
     );
   }
 
+  bool get _hasNextEpisode {
+    if (!_isSeries ||
+        widget.seasons == null ||
+        widget.seasons!.isEmpty ||
+        (_currentSeasonId == null && widget.seasonIndex == null) ||
+        (_currentEpisodeId == null && widget.episodeIndex == null)) {
+      return false;
+    }
+    final seasonId = _currentSeasonId ?? widget.seasonIndex!;
+    final episodeId = _currentEpisodeId ?? widget.episodeIndex!;
+    final provider = context.read<PlayMediaProvider>();
+    return provider.getNextEpisode(
+          seasons: widget.seasons!,
+          seasonId: seasonId,
+          episodeId: episodeId,
+        ) !=
+        null;
+  }
+
   Widget _centerPlaybackControls() {
     final compact = ResponsiveWidget.isMobile(context);
     final spacing = compact ? 18.0 : 32.0;
@@ -1872,6 +1993,17 @@ class _PlayMediaPageState extends State<PlayMediaPage>
             _showControls();
           },
         ),
+        if (_hasNextEpisode) ...[
+          SizedBox(width: spacing),
+          _roundPlaybackButton(
+            icon: Icons.skip_next_rounded,
+            semanticsLabel: 'Next Episode',
+            onPressed: () {
+              unawaited(_playNextEpisode());
+              _showControls();
+            },
+          ),
+        ],
       ],
     );
   }
@@ -2472,12 +2604,15 @@ class _PlayMediaPageState extends State<PlayMediaPage>
 
     final androidPlayer = _androidSecurePlayer;
     if (androidPlayer != null && androidPlayer.value.isInitialized) {
+      final size = androidPlayer.value.size;
+      final videoWidth = (size.width > 0) ? size.width : 16.0;
+      final videoHeight = (size.height > 0) ? size.height : 9.0;
       return SizedBox.expand(
         child: FittedBox(
           fit: BoxFit.cover,
           child: SizedBox(
-            width: androidPlayer.value.size.width,
-            height: androidPlayer.value.size.height,
+            width: videoWidth,
+            height: videoHeight,
             child: native_video.VideoPlayer(androidPlayer),
           ),
         ),
