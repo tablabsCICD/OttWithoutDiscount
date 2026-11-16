@@ -8,6 +8,7 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class HelpSupportPage extends StatefulWidget {
   const HelpSupportPage({super.key});
@@ -37,13 +38,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        title: Text(lang.helpAndSupport,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-      ),
+      appBar: FilmytellAppBar.main(title: lang.helpAndSupport),
       body: Consumer<TicketProvider>(
         builder: (context, provider, child) {
           final maxWidth = ResponsiveWidget.isMobile(context) ? 620.0 : 760.0;

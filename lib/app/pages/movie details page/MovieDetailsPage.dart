@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
 import 'package:ott/app/core/utils/content_type.dart';
@@ -29,8 +28,10 @@ import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../widgets/show_toast.dart';
 import '../watchlist page/component/playMoviePage.dart';
-import 'component/displayStar.dart';
+import 'component/review_list_card.dart';
 import 'component/starRating.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
+import 'package:ott/app/widgets/content_detail_app_bar.dart';
 
 class MovieDetailsPage extends StatefulWidget {
   final int movieId;
@@ -218,32 +219,42 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
 
     return Scaffold(
       backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        forceMaterialTransparency: true,
-        foregroundColor: Colors.white,
-        title: !ResponsiveWidget.isMobile(context)
-            ? const Text('')
-            : StarRatingWidget(
-                rating: double.parse(
-                  (Provider.of<DashboardProvider>(context).content.ratings ??
-                          0.0)
-                      .toStringAsFixed(1),
-                ),
-                starSize: 20,
-                textSize: 16,
-              ),
-        actions: [
-          _ageRating(movieContent.ageRating),
-          SizedBox(
-            width: 5,
-          )
-        ],
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        elevation: 0,
-      ),
+      // Movie & Short Film share this page. Phones / tablets: the shared
+      // compact red detail app bar (same as Series & Mini Series), with the
+      // body laid out below it. Large landscape (TV / desktop) keeps the
+      // transparent bar over the cinematic hero.
+      extendBodyBehindAppBar: ResponsiveWidget.isTv(context),
+      appBar: !ResponsiveWidget.isTv(context)
+          ? ContentDetailAppBar(
+              title: movieContent.title,
+              rating: movieContent.ratings,
+            )
+          : AppBar(
+            automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
+            toolbarHeight: FilmytellAppBarMetrics.compact,
+            forceMaterialTransparency: true,
+            foregroundColor: Colors.white,
+            title: !ResponsiveWidget.isMobile(context)
+                ? const Text('')
+                : StarRatingWidget(
+                    rating: double.parse(
+                      (Provider.of<DashboardProvider>(context).content.ratings ??
+                              0.0)
+                          .toStringAsFixed(1),
+                    ),
+                    starSize: 20,
+                    textSize: 16,
+                  ),
+            actions: [
+              _ageRating(movieContent.ageRating),
+              SizedBox(
+                width: 5,
+              )
+            ],
+            backgroundColor: Colors.transparent,
+            centerTitle: true,
+            elevation: 0,
+          ),
       body: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           _handleTrailerScrollNotification(notification);
@@ -275,13 +286,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
 
     return Scaffold(
       backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        forceMaterialTransparency: true,
-        foregroundColor: Colors.white,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      appBar: const ContentDetailAppBar(),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1479,73 +1484,83 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             ),
           ),
         ),
-        SingleChildScrollView(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 95),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: TrailerPreview(
-                    trailerUrl: content.teaserOrTrailerUrl,
-                    content: content,
-                    controller: _trailerController,
-                  ),
-                ),
-              ),
-              const SizedBox(height: _mediaPlayerBottomMargin),
-              Text(
-                content.title ?? "",
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: selectedThemeData.primaryColor,
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    (content.genreList != null && content.genreList!.isNotEmpty)
-                        ? content.genreList!.join(' | ')
-                        : 'N/A',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                      color: selectedThemeData.canvasColor.withOpacity(0.7),
+        // The app bar is transparent and the body extends behind it, so the
+        // Scaffold reports the app bar's bottom edge (status bar + toolbar) as
+        // the body's top padding. Start the scroll view there and clip it so
+        // scrolled content never slides under the back button / rating /
+        // age rating, on every iPhone safe-area size.
+        Builder(
+          builder: (context) => Padding(
+            padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+            child: ClipRect(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: TrailerPreview(
+                          trailerUrl: content.teaserOrTrailerUrl,
+                          content: content,
+                          controller: _trailerController,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 9),
-              _buildExpandableDescription(
-                content.description ?? 'N/A',
-                selectedThemeData,
-                maxCollapsedLines: 3,
-              ),
-              const SizedBox(height: 8),
-              content.isFeatured == true
-                  ? _buildReleaseDateHighlight(context, content)
-                  : Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
+                    const SizedBox(height: _mediaPlayerBottomMargin),
+                    Text(
+                      content.title ?? "",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: selectedThemeData.primaryColor,
+                      ),
+                    ),
+                    Row(
                       children: [
-                        _buildButtons(context, content),
+                        Text(
+                          (content.genreList != null &&
+                                  content.genreList!.isNotEmpty)
+                              ? content.genreList!.join(' | ')
+                              : 'N/A',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                            color:
+                                selectedThemeData.canvasColor.withOpacity(0.7),
+                          ),
+                        ),
                       ],
                     ),
-              const SizedBox(height: 12),
-              _buildCastSection(context, content),
-              const SizedBox(height: 10),
-              _buildDetailsSection(context, content),
-              const SizedBox(height: 16),
-              _buildGallery(context, content),
-              const SizedBox(height: 16),
-              _buildRatingAndReviewsSection(context, content),
-              const SizedBox(height: 24),
-              /*   const SizedBox(height: 35),
+                    const SizedBox(height: 9),
+                    _buildExpandableDescription(
+                      content.description ?? 'N/A',
+                      selectedThemeData,
+                      maxCollapsedLines: 3,
+                    ),
+                    const SizedBox(height: 8),
+                    content.isFeatured == true
+                        ? _buildReleaseDateHighlight(context, content)
+                        : Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              _buildButtons(context, content),
+                            ],
+                          ),
+                    const SizedBox(height: 12),
+                    _buildCastSection(context, content),
+                    const SizedBox(height: 10),
+                    _buildDetailsSection(context, content),
+                    const SizedBox(height: 16),
+                    _buildGallery(context, content),
+                    const SizedBox(height: 16),
+                    _buildRatingAndReviewsSection(context, content),
+                    const SizedBox(height: 24),
+                    /*   const SizedBox(height: 35),
               if (content.posterUrlList != null &&
                   content.posterUrlList!.isNotEmpty) ...[
                 Text(
@@ -1581,7 +1596,10 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                     : SizedBox.shrink(),
                 const SizedBox(height: 35),
               ], */
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -2573,86 +2591,10 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: provider.reviewList.length,
           itemBuilder: (BuildContext context, int index) {
-            DateTime date = DateTime.now();
-            if (provider.reviewList[index].createdAt != null) {
-              date = DateTime.fromMillisecondsSinceEpoch(
-                  provider.reviewList[index].createdAt!);
-            }
-            String formattedDate =
-                DateFormat('yyyy-MM-dd HH:mm:ss').format(date);
-            final username = provider.reviewList[index].username;
-            final displayName = username == null || username == "null null"
-                ? AppLocalizations.of(context)!.detailsAnonymousUser
-                : username;
-
-            return Container(
-              margin: const EdgeInsets.symmetric(vertical: 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      SizedBox(
-                        height: 40,
-                        width: 40,
-                        child: CircleAvatar(
-                          backgroundImage:
-                              provider.reviewList[index].userProfile != null
-                                  ? NetworkImage(
-                                      provider.reviewList[index].userProfile!)
-                                  : null,
-                          radius: 50,
-                          child: provider.reviewList[index].userProfile == null
-                              ? const Icon(Icons.person, size: 25)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(
-                        width: 15,
-                      ),
-                      Expanded(
-                        child: Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      StarDisplay(
-                          value: provider.reviewList[index].rating ?? 5),
-                      const SizedBox(
-                        width: 10,
-                      ),
-                      Flexible(
-                        child: Text(formattedDate,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.normal,
-                              fontSize: 12,
-                            )),
-                      )
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Text(provider.reviewList[index].title.toString(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.normal,
-                        fontSize: 12,
-                      )),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  const Divider(
-                    thickness: 2,
-                  )
-                ],
-              ),
+            final review = provider.reviewList[index];
+            return ReviewListCard(
+              key: ValueKey(review.reviewId ?? index),
+              review: review,
             );
           },
         );

@@ -12,6 +12,7 @@ import 'package:ott/data/models/response/push_notification_response.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -142,15 +143,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     return Scaffold(
       backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: selectedThemeData.primaryColor,
-        foregroundColor: Colors.white,
-        title: Text(
-          lang.notification,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-        ),
-      ),
+      appBar: FilmytellAppBar(title: lang.notification),
       body: RefreshIndicator(
         onRefresh: () => _loadNotifications(),
         child: _body(selectedThemeData),

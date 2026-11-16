@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../provider/themeProvider.dart';
 import '../../widgets/show_toast.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class SeriesBillingPage extends StatefulWidget {
   final int seriesId;
@@ -69,6 +70,7 @@ class _SeriesBillingPageState extends State<SeriesBillingPage> {
         slivers: [
           // -------- Wallet Header --------
           SliverAppBar(
+            toolbarHeight: FilmytellAppBarMetrics.compact,
             automaticallyImplyLeading:
                 !(kIsWeb || ResponsiveWidget.isTv(context)),
             pinned: true,

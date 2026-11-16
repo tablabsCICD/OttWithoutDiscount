@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
+import 'package:ott/app/core/utils/app_orientation.dart';
 import 'package:ott/app/provider/themeProvider.dart';
 import 'package:ott/data/themes/custom_theme.dart';
 import 'package:ott/app/provider/bookmarkProvider.dart';
@@ -40,6 +41,9 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // iOS: open in portrait, then allow manual rotation. Android phones get
+  // their launch portrait natively (MainActivity). No-op elsewhere.
+  unawaited(AppOrientation.applyLaunchDefault());
   MediaKit.ensureInitialized();
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);

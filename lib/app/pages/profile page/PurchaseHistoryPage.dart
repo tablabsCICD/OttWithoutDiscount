@@ -12,6 +12,7 @@ import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 /// Filter values sent to the purchase history API (unchanged).
 const List<String> _purchaseTypeFilters = <String>[
@@ -63,14 +64,7 @@ class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.primaryColor,
-        title: Text(
-          l10n.purchaseHistory,
-          style: const TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: FilmytellAppBar.main(title: l10n.purchaseHistory),
       body: SafeArea(
         top: false,
         child: Center(

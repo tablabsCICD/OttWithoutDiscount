@@ -8,6 +8,7 @@ import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/data/models/anti_piracy_models.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class DeviceManagementPage extends StatefulWidget {
   const DeviceManagementPage({super.key});
@@ -34,11 +35,7 @@ class _DeviceManagementPageState extends State<DeviceManagementPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        foregroundColor: theme.canvasColor,
-        title: Text(lang.deviceManagement),
-      ),
+      appBar: FilmytellAppBar(title: lang.deviceManagement),
       body: Consumer<SessionDeviceProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading && provider.devices.isEmpty) {

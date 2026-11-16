@@ -7,6 +7,7 @@ import 'package:ott/app/provider/bookmarkProvider.dart';
 import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 enum BookmarkFilter { movies, series, shorts, shortFilms }
 
@@ -37,16 +38,7 @@ class _BookmarkPageState extends State<BookmarkPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          lang.bookmarkMyBookmarks,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-      ),
+      appBar: FilmytellAppBar.main(title: lang.bookmarkMyBookmarks),
       body: Consumer<BookmarkProvider>(
         builder: (context, provider, _) {
           if (provider.isLoading) {

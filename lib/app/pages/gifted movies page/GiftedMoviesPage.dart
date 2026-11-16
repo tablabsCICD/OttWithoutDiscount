@@ -12,6 +12,7 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class GiftedMoviesPage extends StatefulWidget {
   const GiftedMoviesPage({super.key});
@@ -68,17 +69,7 @@ class _GiftedMoviesPageState extends State<GiftedMoviesPage> {
     final theme = Theme.of(context);
     final lang = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
-        foregroundColor: Colors.white,
-        title: Text(
-          lang.giftedMovies,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: theme.primaryColor,
-        centerTitle: true,
-      ),
+      appBar: FilmytellAppBar(title: lang.giftedMovies),
       body: Consumer<GiftProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {

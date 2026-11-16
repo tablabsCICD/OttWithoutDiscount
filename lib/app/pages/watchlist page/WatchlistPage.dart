@@ -17,6 +17,7 @@ import 'package:ott/data/models/content.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 enum WatchlistFilter { available, gifted, expired, downloaded }
 
@@ -268,18 +269,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        title: Text(
-          lang.watchlist,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      appBar: FilmytellAppBar.main(title: lang.watchlist),
       body: Column(
         children: [
           _segmentedToggle(theme),

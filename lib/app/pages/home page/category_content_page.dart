@@ -6,6 +6,7 @@ import 'package:ott/app/route/route_observer.dart';
 import 'package:ott/data/models/content.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class CategoryContentPage extends StatefulWidget {
   final String categoryTitle;
@@ -176,16 +177,9 @@ class _CategoryContentPageState extends State<CategoryContentPage>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
+      appBar: FilmytellAppBar(
         automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        title: Text(
-          widget.categoryTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: widget.categoryTitle,
       ),
       body: _contents.isEmpty
           ? Center(

@@ -10,6 +10,7 @@ import 'package:ott/l10n/app_localizations.dart';
 // avoid conflict
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class GiftDetailsPage extends StatefulWidget {
   final int giftMasterId;
@@ -65,17 +66,9 @@ class _GiftDetailsPageState extends State<GiftDetailsPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
+      appBar: FilmytellAppBar(
         automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        title: Text(
-          lang.giftDetails,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: lang.giftDetails,
       ),
       body: Consumer<GiftProvider>(
         builder: (context, provider, child) {

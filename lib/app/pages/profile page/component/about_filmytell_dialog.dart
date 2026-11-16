@@ -3,6 +3,7 @@ import 'package:ott/app/provider/themeProvider.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class AboutFilmytellScreen extends StatelessWidget {
   const AboutFilmytellScreen({super.key});
@@ -17,14 +18,7 @@ class AboutFilmytellScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.primaryColor,
-        title: Text(
-          lang.aboutFilmytell,
-          style: const TextStyle(color: Colors.white),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: FilmytellAppBar(title: lang.aboutFilmytell),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(

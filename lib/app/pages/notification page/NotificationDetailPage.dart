@@ -6,6 +6,7 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class NotificationDetailPage extends StatelessWidget {
   const NotificationDetailPage({
@@ -23,14 +24,9 @@ class NotificationDetailPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
+      appBar: FilmytellAppBar(
         automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        forceMaterialTransparency: true,
-        foregroundColor: theme.canvasColor,
-        title: Text(
-          lang.notification,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: lang.notification,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

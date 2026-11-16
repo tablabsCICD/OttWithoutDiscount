@@ -18,6 +18,7 @@ import 'package:ott/data/repositories/demo.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -85,7 +86,7 @@ class _SearchPageState extends State<SearchPage> {
           appBar: AppBar(
             automaticallyImplyLeading:
                 !(kIsWeb || ResponsiveWidget.isTv(context)),
-            toolbarHeight: 72,
+            toolbarHeight: FilmytellAppBarMetrics.main,
             titleSpacing: 12,
             backgroundColor:
                 isDesktop ? theme.scaffoldBackgroundColor : theme.primaryColor,

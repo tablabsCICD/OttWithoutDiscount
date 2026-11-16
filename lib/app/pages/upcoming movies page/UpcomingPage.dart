@@ -11,6 +11,7 @@ import 'package:ott/data/models/content.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class UpcomingPage extends StatefulWidget {
   const UpcomingPage({super.key});
@@ -41,18 +42,7 @@ class _UpcomingPageState extends State<UpcomingPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          lang.upcoming,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      appBar: FilmytellAppBar.main(title: lang.upcoming),
       body: isLoading
           ? ComingSoonShimmer()
           : Consumer<VideoProvider>(

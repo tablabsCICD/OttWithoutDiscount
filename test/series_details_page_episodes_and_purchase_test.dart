@@ -245,7 +245,12 @@ void main() {
       await tester.pump();
 
       // Verify title block and season info
-      expect(find.text('Awesome Drama'), findsOneWidget);
+      // Title in the page body (it is also shown in the detail app bar).
+      expect(
+          find.descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.text('Awesome Drama')),
+          findsOneWidget);
       expect(find.text('Season 1: Season 1'), findsOneWidget);
 
       // Verify episode listing

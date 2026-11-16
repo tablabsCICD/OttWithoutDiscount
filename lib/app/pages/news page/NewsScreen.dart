@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class NewsScreenArgs {
   const NewsScreenArgs({
@@ -43,9 +44,9 @@ class NewsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final lang = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(
+      appBar: FilmytellAppBar(
         automaticallyImplyLeading: !(kIsWeb || ResponsiveWidget.isTv(context)),
-        title: Text(lang.newsTitle),
+        title: lang.newsTitle,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),

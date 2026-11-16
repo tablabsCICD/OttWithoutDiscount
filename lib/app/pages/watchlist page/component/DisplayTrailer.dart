@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:ott/app/core/utils/app_orientation.dart';
 import 'package:ott/app/core/utils/direct_trailer_source.dart';
 import 'package:ott/app/core/utils/security_debug_log.dart';
 import 'package:video_player/video_player.dart' as native_video;
@@ -85,10 +86,7 @@ class _TrailerPageState extends State<TrailerPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    unawaited(AppOrientation.lockLandscape());
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     if (_hasUrl) _initPlayer();
   }
@@ -407,7 +405,8 @@ class _TrailerPageState extends State<TrailerPage> with WidgetsBindingObserver {
     WakelockPlus.disable();
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Portrait on exit; manual rotation is re-enabled afterwards.
+    unawaited(AppOrientation.restoreDefault());
     if (kDebugMode) {
       debugPrint('TRAILER_FLOW: Trailer player disposed');
     }

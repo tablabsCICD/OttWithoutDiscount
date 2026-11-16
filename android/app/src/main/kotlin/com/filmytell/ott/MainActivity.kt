@@ -1,6 +1,11 @@
 package com.filmytell.ott
 
+import android.app.UiModeManager
+import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Bundle
+import android.view.OrientationEventListener
 import android.view.WindowManager
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
@@ -13,16 +18,86 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     private val antiPiracyChannel = "com.filmytell.ott/anti_piracy"
     private val installReferrerChannel = "com.filmytell.ott/install_referrer"
+    private val orientationChannel = "com.filmytell.ott/orientation"
+    private var uprightListener: OrientationEventListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Phones open in portrait (never sideways at launch); rotation is
+        // handed back to the system once the phone is held upright. TV and
+        // large screens keep their default orientation.
+        if (savedInstanceState == null && isPhoneSized()) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            releasePortraitWhenUpright()
+        }
         super.onCreate(savedInstanceState)
 
         // Keep the screen awake during playback-heavy sessions.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    override fun onDestroy() {
+        uprightListener?.disable()
+        uprightListener = null
+        super.onDestroy()
+    }
+
+    /** A phone: not a TV / leanback device and smallest width < 600dp. */
+    private fun isPhoneSized(): Boolean {
+        val uiMode = getSystemService(UI_MODE_SERVICE) as? UiModeManager
+        val isTv = uiMode?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION ||
+            packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        return !isTv && resources.configuration.smallestScreenWidthDp < 600
+    }
+
+    /**
+     * Keeps the current portrait request until the device is physically
+     * upright, then returns rotation to the system (auto-rotate setting).
+     * Does nothing if something else (e.g. the full-screen player) changed
+     * the requested orientation meanwhile. Non-phones are released at once.
+     */
+    private fun releasePortraitWhenUpright() {
+        uprightListener?.disable()
+        uprightListener = null
+        if (!isPhoneSized()) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            return
+        }
+        val listener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                if (degrees <= 30 || degrees >= 330) {
+                    disable()
+                    if (uprightListener === this) uprightListener = null
+                    if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
+            }
+        }
+        if (listener.canDetectOrientation()) {
+            uprightListener = listener
+            listener.enable()
+        } else if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
+            // No sensor: nothing to wait for.
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            orientationChannel
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "releasePortraitWhenUpright" -> {
+                    releasePortraitWhenUpright()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,

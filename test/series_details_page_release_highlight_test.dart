@@ -102,6 +102,9 @@ void main() {
 
     // Verify no crash and release date highlight is displayed
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('Release On:'), findsWidgets);
+    // The wide layout now sits below the compact detail app bar, so the
+    // highlight can be just below the fold; it must still be built.
+    expect(find.textContaining('Release On:', skipOffstage: false),
+        findsWidgets);
   });
 }

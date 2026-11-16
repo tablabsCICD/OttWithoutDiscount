@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../provider/userProvider.dart';
 import '../../../widgets/month_year_picker_dialog.dart';
 import '../../../widgets/show_toast.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -75,12 +76,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       backgroundColor: selectedThemeData.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: selectedThemeData.primaryColor,
-        title: Text(
-          lang.editProfile,
-          style: TextStyle(color: Colors.white),
-        ),
+      appBar: FilmytellAppBar(
+        title: lang.editProfile,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_sharp, color: Colors.white),
           onPressed: () async {

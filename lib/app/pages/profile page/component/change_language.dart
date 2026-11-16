@@ -8,6 +8,7 @@ import 'package:ott/app/provider/userProvider.dart';
 import 'package:ott/app/widgets/show_toast.dart';
 import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class ChangeLanguage extends StatefulWidget {
   const ChangeLanguage({super.key});
@@ -202,17 +203,7 @@ class _ChangeLanguageState extends State<ChangeLanguage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          lang.langPreferredLanguages,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      appBar: FilmytellAppBar(title: lang.langPreferredLanguages),
       body: Padding(
         padding: const EdgeInsets.all(8),
         child: Consumer<LanguageProvider>(

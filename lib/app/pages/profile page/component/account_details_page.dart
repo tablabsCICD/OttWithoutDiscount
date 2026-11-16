@@ -12,6 +12,7 @@ import 'package:ott/l10n/app_localizations.dart';
 import 'package:ott/presentation/web_landing/utils/post_logout_navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ott/app/widgets/filmytell_app_bar.dart';
 
 class AccountDetailsPage extends StatefulWidget {
   const AccountDetailsPage({super.key});
@@ -42,16 +43,7 @@ class _AccountDetailsPageState extends State<AccountDetailsPage> {
     final lang = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(
-          lang.accountDetails,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-      ),
+      appBar: FilmytellAppBar(title: lang.accountDetails),
       body: SafeArea(
         top: false,
         bottom: true,
