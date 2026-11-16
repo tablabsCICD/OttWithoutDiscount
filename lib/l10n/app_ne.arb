@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "डाउनलोड मेटाउन सकिएन: {error}",
   "watchlistGifted": "उपहार दिइएको",
   "watchlistExpired": "म्याद सकियो",
+  "giftCardExpiresOn": "{date} मा समाप्त हुन्छ",
+  "giftCardExpiringSoon": "चाँडै समाप्त हुँदै · {date}",
+  "giftCardGiftedOn": "{date} मा उपहार दिइएको",
   "watchlistOffline": "अफलाइन",
   "watchlistDeleteDownload": "डाउनलोड मेटाउनुहोस्",
   "watchlistNoDownloadedContentFound": "कुनै डाउनलोड गरिएको सामग्री फेला परेन",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "कुनै सन्देश छैन",
   "newsPayload": "पेलोड",
   "routeMovieNotFound": "फिल्म फेला परेन",
-  "routeInvalidMovieLink": "सेयर गरिएको फिल्म लिंक अमान्य वा अपूर्ण छ।"
+  "routeInvalidMovieLink": "सेयर गरिएको फिल्म लिंक अमान्य वा अपूर्ण छ।",
+  "giftedToYou": "तपाईंलाई दिइएका उपहार",
+  "giftedToYouEmptyTitle": "अहिलेसम्म कुनै उपहार छैन",
+  "giftedToYouEmptyMessage": "तपाईंलाई उपहार दिइएका फिल्म र सामग्री यहाँ देखिनेछन्।"
 }

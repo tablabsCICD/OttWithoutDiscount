@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "డౌన్‌లోడ్‌ను తొలగించలేకపోయాం: {error}",
   "watchlistGifted": "బహుమతిగా పొందినది",
   "watchlistExpired": "గడువు ముగిసింది",
+  "giftCardExpiresOn": "{date}న గడువు ముగుస్తుంది",
+  "giftCardExpiringSoon": "త్వరలో గడువు ముగుస్తుంది · {date}",
+  "giftCardGiftedOn": "{date}న బహుమతిగా ఇచ్చారు",
   "watchlistOffline": "ఆఫ్‌లైన్",
   "watchlistDeleteDownload": "డౌన్‌లోడ్ తొలగించండి",
   "watchlistNoDownloadedContentFound": "డౌన్‌లోడ్ చేసిన కంటెంట్ ఏదీ కనబడలేదు",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "సందేశం లేదు",
   "newsPayload": "పేలోడ్",
   "routeMovieNotFound": "సినిమా కనబడలేదు",
-  "routeInvalidMovieLink": "షేర్ చేసిన సినిమా లింక్ చెల్లనిది లేదా అసంపూర్ణంగా ఉంది."
+  "routeInvalidMovieLink": "షేర్ చేసిన సినిమా లింక్ చెల్లనిది లేదా అసంపూర్ణంగా ఉంది.",
+  "giftedToYou": "మీకు వచ్చిన బహుమతులు",
+  "giftedToYouEmptyTitle": "ఇంకా బహుమతులు లేవు",
+  "giftedToYouEmptyMessage": "మీకు బహుమతిగా ఇచ్చిన సినిమాలు మరియు కంటెంట్ ఇక్కడ కనిపిస్తాయి."
 }

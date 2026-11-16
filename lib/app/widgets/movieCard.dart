@@ -9,7 +9,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:video_player/video_player.dart' as native_video;
+import 'package:intl/intl.dart';
 import 'package:ott/app/core/services/DeepLinkService.dart';
+import 'package:ott/app/core/services/gifted_content_info_service.dart';
 import 'package:ott/app/core/utils/direct_trailer_source.dart';
 import 'package:ott/app/core/utils/content_type.dart';
 import 'package:ott/app/core/utils/security_debug_log.dart';
@@ -49,9 +51,19 @@ class MovieCard extends StatefulWidget {
   final int? index;
   final double? cardWidth;
   final double? cardMargin;
+
+  /// Overrides [standardHeight] (e.g. a grid that widens cards to fill the
+  /// row and grows the 16:9 poster to match). Null keeps the standard height.
+  final double? cardHeight;
   final ValueChanged<Content>? onContentUpdated;
   final bool isShortFilmTab;
   final BoxFit? posterFit;
+
+  /// Card is shown in the Home "Gifted To You" row: adds the GIFTED badge.
+  final bool isGifted;
+
+  /// Gift dates for that card, when the gifted-content API provides them.
+  final GiftedContentInfo? giftInfo;
 
   const MovieCard({
     super.key,
@@ -60,10 +72,26 @@ class MovieCard extends StatefulWidget {
     this.index,
     this.cardWidth,
     this.cardMargin,
+    this.cardHeight,
     this.onContentUpdated,
     this.isShortFilmTab = false,
     this.posterFit,
+    this.isGifted = false,
+    this.giftInfo,
+    this.onOpen,
+    this.onWatchNow,
   });
+
+  /// Replaces the default open action (card tap, TV select key and — unless
+  /// [onWatchNow] is set — the price / Watch Now button). Null keeps the
+  /// default behavior (open the details page).
+  final VoidCallback? onOpen;
+
+  /// Watch Now button action, separate from the card tap. Used where the user
+  /// already has access to the content (e.g. Profile -> Gifted To You): the
+  /// button shows "Watch Now" instead of the price and calls this. The button
+  /// has its own tap handler, so it never triggers the card tap.
+  final VoidCallback? onWatchNow;
 
   /// Resolves the standardized card width for the given context based on
   /// platform and responsive viewport breakpoints.
@@ -572,7 +600,7 @@ class _MovieCardState extends State<MovieCard> {
 
     return SizedBox(
       width: cardWidth,
-      height: MovieCard.standardHeight,
+      height: widget.cardHeight ?? MovieCard.standardHeight,
       child: Stack(
         children: [
           Focus(
@@ -589,7 +617,7 @@ class _MovieCardState extends State<MovieCard> {
                   key == LogicalKeyboardKey.select ||
                   key == LogicalKeyboardKey.space ||
                   key == LogicalKeyboardKey.gameButtonA) {
-                _openDetails();
+                _handleOpen();
                 return KeyEventResult.handled;
               }
               return KeyEventResult.ignored;
@@ -598,7 +626,7 @@ class _MovieCardState extends State<MovieCard> {
               onEnter: (_) => _handleHover(true),
               onExit: (_) => _handleHover(false),
               child: GestureDetector(
-                onTap: _openDetails,
+                onTap: _handleOpen,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
@@ -653,6 +681,14 @@ class _MovieCardState extends State<MovieCard> {
               ),
             ),
           ),
+
+          /// 🎁 GIFTED BADGE (Gifted To You row only; top-left of the poster)
+          if (widget.isGifted)
+            Positioned(
+              left: cardMargin + 8,
+              top: (showPreview ? 1 : 3) + 8,
+              child: IgnorePointer(child: _giftedBadge(theme, lang)),
+            ),
 
           /// ⋮ OPTIONS BUTTON
           _optionButton(context, widget.movie),
@@ -813,6 +849,7 @@ class _MovieCardState extends State<MovieCard> {
         ? movie.genreList!.join(', ')
         : lang.cardDefaultGenre;
     final metadataText = genreStr;
+    final giftLine = widget.isGifted ? _giftInfoLine(theme, lang) : null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Row(
@@ -839,16 +876,19 @@ class _MovieCardState extends State<MovieCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    metadataText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      color: theme.canvasColor.withValues(alpha: 0.7),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  // Gifted cards show their gift status in place of the
+                  // genre line (same height); otherwise the genre line.
+                  giftLine ??
+                      Text(
+                        metadataText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: theme.canvasColor.withValues(alpha: 0.7),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                 ],
               ),
             ),
@@ -880,21 +920,102 @@ class _MovieCardState extends State<MovieCard> {
     );
   }
 
+  Widget _giftedBadge(ThemeData theme, AppLocalizations lang) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: theme.primaryColor,
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: const [
+          BoxShadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 1)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(LucideIcons.gift, size: 11, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            lang.watchlistGifted.toUpperCase(),
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Expiry (with Expiring soon / Expired) or, without an expiry, the gift
+  /// date. Null when the API gave neither, so the genre line stays.
+  Widget? _giftInfoLine(ThemeData theme, AppLocalizations lang) {
+    final info = widget.giftInfo;
+    if (info == null || !info.hasDetails) return null;
+    final locale = Localizations.localeOf(context).toString();
+    String format(DateTime date) {
+      try {
+        return DateFormat('dd MMM yyyy', locale).format(date);
+      } catch (_) {
+        return DateFormat('dd MMM yyyy').format(date);
+      }
+    }
+
+    final muted = theme.canvasColor.withValues(alpha: 0.7);
+    final String text;
+    Color color = muted;
+    final expiry = info.expiresOn;
+    final status = info.statusAt(DateTime.now());
+    if (status == GiftStatus.expired) {
+      text = lang.watchlistExpired;
+      color = theme.colorScheme.error;
+    } else if (expiry != null) {
+      switch (status) {
+        case GiftStatus.expiringSoon:
+          text = lang.giftCardExpiringSoon(format(expiry));
+          color = Colors.orange.shade700;
+        case GiftStatus.active:
+        case GiftStatus.expired:
+        case null:
+          text = lang.giftCardExpiresOn(format(expiry));
+      }
+    } else {
+      text = lang.giftCardGiftedOn(format(info.giftedOn!));
+    }
+
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.inter(
+        color: color,
+        fontSize: 10.5,
+        fontWeight:
+            color == muted ? FontWeight.w500 : FontWeight.w700,
+      ),
+    );
+  }
+
   Widget _buildPriceButton(
       ThemeData theme, AppLocalizations lang, double price) {
     final movie = widget.movie;
     final contentType = ContentType.normalize(movie.type);
     final isSeries = contentType == ContentType.series;
     final isPurchased = movie.isRental == true;
+    final onOpen = widget.onWatchNow ?? widget.onOpen;
 
-    final shouldShowWatchNow = isSeries || isPurchased;
+    final shouldShowWatchNow = isSeries || isPurchased || onOpen != null;
 
     return GestureDetector(
-      onTap: () => isSeries
-          ? _openDetails()
-          : isPurchased
-              ? _playMovie()
-              : _showCupertinoDialog(context, movie),
+      onTap: () => onOpen != null
+          ? onOpen()
+          : isSeries
+              ? _openDetails()
+              : isPurchased
+                  ? _playMovie()
+                  : _showCupertinoDialog(context, movie),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
         decoration: BoxDecoration(
@@ -923,6 +1044,15 @@ class _MovieCardState extends State<MovieCard> {
       id: FeatureTourStepId.download,
       child: child,
     );
+  }
+
+  void _handleOpen() {
+    final onOpen = widget.onOpen;
+    if (onOpen != null) {
+      onOpen();
+      return;
+    }
+    _openDetails();
   }
 
   void _openDetails() {

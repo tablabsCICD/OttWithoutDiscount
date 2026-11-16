@@ -42,6 +42,7 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/app/widgets/edit_address_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:ott/app/core/services/gifted_content_info_service.dart';
 import '../../core/services/referral_service.dart';
 import '../../core/services/staged_registration_service.dart';
 import '../../widgets/month_year_picker_dialog.dart';
@@ -814,7 +815,16 @@ class _HomePageState extends State<HomePage>
                                                                             itemBuilder:
                                                                                 (context, i) {
                                                                               if (i < dashboardData.movies!.length) {
-                                                                                return MovieCard(movie: dashboardData.movies![i], index: i, isShortFilmTab: ContentType.normalize(selectedType) == ContentType.shortFilm, activeIndexListenable: activeIndex);
+                                                                                final rowMovie = dashboardData.movies![i];
+                                                                                final isShortFilmTab = ContentType.normalize(selectedType) == ContentType.shortFilm;
+                                                                                if (GiftedContentInfoService.isGiftedCategory(dashboardData.category)) {
+                                                                                  // "Gifted To You": GIFTED badge + gift dates when available.
+                                                                                  return ValueListenableBuilder<Map<int, GiftedContentInfo>>(
+                                                                                    valueListenable: GiftedContentInfoService.instance.infoByContentId,
+                                                                                    builder: (context, giftInfo, _) => MovieCard(movie: rowMovie, index: i, isShortFilmTab: isShortFilmTab, activeIndexListenable: activeIndex, isGifted: true, giftInfo: giftInfo[rowMovie.id]),
+                                                                                  );
+                                                                                }
+                                                                                return MovieCard(movie: rowMovie, index: i, isShortFilmTab: isShortFilmTab, activeIndexListenable: activeIndex);
                                                                               } else if (dashboardData.isRowLoading) {
                                                                                 return Padding(
                                                                                   padding: const EdgeInsets.all(12),
@@ -1683,6 +1693,14 @@ class _HomePageState extends State<HomePage>
     if (user?.id != null) {
       await dashBoardProvider.getDashboardData(
           selectedType, langList, user!.id!);
+      // Gift dates for the "Gifted To You" row (read-only; only fetched when
+      // that row is present). Re-fetched on each dashboard reload.
+      final hasGiftedRow = dashBoardProvider.dashboardData.any((row) =>
+          GiftedContentInfoService.isGiftedCategory(row.category) &&
+          (row.movies?.isNotEmpty ?? false));
+      if (hasGiftedRow) {
+        unawaited(GiftedContentInfoService.instance.load(user.id!, force: true));
+      }
     }
   }
 

@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ಡೌನ್‌ಲೋಡ್ ಅಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ: {error}",
   "watchlistGifted": "ಉಡುಗೊರೆಯಾಗಿ ನೀಡಲಾಗಿದೆ",
   "watchlistExpired": "ಅವಧಿ ಮುಗಿದಿದೆ",
+  "giftCardExpiresOn": "{date} ರಂದು ಅವಧಿ ಮುಗಿಯುತ್ತದೆ",
+  "giftCardExpiringSoon": "ಶೀಘ್ರದಲ್ಲೇ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ · {date}",
+  "giftCardGiftedOn": "{date} ರಂದು ಉಡುಗೊರೆ ನೀಡಲಾಗಿದೆ",
   "watchlistOffline": "ಆಫ್‌ಲೈನ್",
   "watchlistDeleteDownload": "ಡೌನ್‌ಲೋಡ್ ಅಳಿಸಿ",
   "watchlistNoDownloadedContentFound": "ಯಾವುದೇ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿದ ವಿಷಯ ಕಂಡುಬಂದಿಲ್ಲ",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "ಸಂದೇಶದ ವಿಷಯವಿಲ್ಲ",
   "newsPayload": "ಪೇಲೋಡ್",
   "routeMovieNotFound": "ಚಲನಚಿತ್ರ ಕಂಡುಬಂದಿಲ್ಲ",
-  "routeInvalidMovieLink": "ಹಂಚಿಕೊಂಡ ಚಲನಚಿತ್ರ ಲಿಂಕ್ ಅಮಾನ್ಯ ಅಥವಾ ಅಪೂರ್ಣವಾಗಿದೆ."
+  "routeInvalidMovieLink": "ಹಂಚಿಕೊಂಡ ಚಲನಚಿತ್ರ ಲಿಂಕ್ ಅಮಾನ್ಯ ಅಥವಾ ಅಪೂರ್ಣವಾಗಿದೆ.",
+  "giftedToYou": "ನಿಮಗೆ ಬಂದ ಉಡುಗೊರೆಗಳು",
+  "giftedToYouEmptyTitle": "ಇನ್ನೂ ಯಾವುದೇ ಉಡುಗೊರೆಗಳಿಲ್ಲ",
+  "giftedToYouEmptyMessage": "ನಿಮಗೆ ಉಡುಗೊರೆಯಾಗಿ ನೀಡಿದ ಚಲನಚಿತ್ರಗಳು ಮತ್ತು ವಿಷಯ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ."
 }

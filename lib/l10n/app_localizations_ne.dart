@@ -2248,6 +2248,21 @@ class AppLocalizationsNe extends AppLocalizations {
   String get watchlistExpired => 'म्याद सकियो';
 
   @override
+  String giftCardExpiresOn(String date) {
+    return '$date मा समाप्त हुन्छ';
+  }
+
+  @override
+  String giftCardExpiringSoon(String date) {
+    return 'चाँडै समाप्त हुँदै · $date';
+  }
+
+  @override
+  String giftCardGiftedOn(String date) {
+    return '$date मा उपहार दिइएको';
+  }
+
+  @override
   String get watchlistOffline => 'अफलाइन';
 
   @override
@@ -2900,4 +2915,14 @@ class AppLocalizationsNe extends AppLocalizations {
   @override
   String get routeInvalidMovieLink =>
       'सेयर गरिएको फिल्म लिंक अमान्य वा अपूर्ण छ।';
+
+  @override
+  String get giftedToYou => 'तपाईंलाई दिइएका उपहार';
+
+  @override
+  String get giftedToYouEmptyTitle => 'अहिलेसम्म कुनै उपहार छैन';
+
+  @override
+  String get giftedToYouEmptyMessage =>
+      'तपाईंलाई उपहार दिइएका फिल्म र सामग्री यहाँ देखिनेछन्।';
 }

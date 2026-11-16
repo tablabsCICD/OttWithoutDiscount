@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ଡାଉନଲୋଡ୍ ବିଲୋପ କରିହେଲା ନାହିଁ: {error}",
   "watchlistGifted": "ଉପହାର ଭାବେ ମିଳିଛି",
   "watchlistExpired": "ମିଆଦ ସମାପ୍ତ",
+  "giftCardExpiresOn": "{date} ରେ ମିଆଦ ଶେଷ",
+  "giftCardExpiringSoon": "ଶୀଘ୍ର ମିଆଦ ଶେଷ · {date}",
+  "giftCardGiftedOn": "{date} ରେ ଉପହାର ଦିଆଯାଇଛି",
   "watchlistOffline": "ଅଫଲାଇନ୍",
   "watchlistDeleteDownload": "ଡାଉନଲୋଡ୍ ବିଲୋପ କରନ୍ତୁ",
   "watchlistNoDownloadedContentFound": "କୌଣସି ଡାଉନଲୋଡ୍ ହୋଇଥିବା ବିଷୟବସ୍ତୁ ମିଳିଲା ନାହିଁ",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "କୌଣସି ବାର୍ତ୍ତା ନାହିଁ",
   "newsPayload": "ପେଲୋଡ୍",
   "routeMovieNotFound": "ଚଳଚ୍ଚିତ୍ର ମିଳିଲା ନାହିଁ",
-  "routeInvalidMovieLink": "ସେୟାର୍ କରାଯାଇଥିବା ଚଳଚ୍ଚିତ୍ର ଲିଙ୍କ୍ ଅବୈଧ କିମ୍ବା ଅସମ୍ପୂର୍ଣ୍ଣ।"
+  "routeInvalidMovieLink": "ସେୟାର୍ କରାଯାଇଥିବା ଚଳଚ୍ଚିତ୍ର ଲିଙ୍କ୍ ଅବୈଧ କିମ୍ବା ଅସମ୍ପୂର୍ଣ୍ଣ।",
+  "giftedToYou": "ଆପଣଙ୍କୁ ମିଳିଥିବା ଉପହାର",
+  "giftedToYouEmptyTitle": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଉପହାର ନାହିଁ",
+  "giftedToYouEmptyMessage": "ଆପଣଙ୍କୁ ଉପହାର ଭାବେ ଦିଆଯାଇଥିବା ଚଳଚ୍ଚିତ୍ର ଓ କଣ୍ଟେଣ୍ଟ ଏଠାରେ ଦେଖାଯିବ।"
 }

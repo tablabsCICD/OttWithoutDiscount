@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ডাউনলোড মুছে ফেলা যায়নি: {error}",
   "watchlistGifted": "উপহারপ্রাপ্ত",
   "watchlistExpired": "মেয়াদ শেষ",
+  "giftCardExpiresOn": "{date} তারিখে মেয়াদ শেষ",
+  "giftCardExpiringSoon": "শীঘ্রই মেয়াদ শেষ · {date}",
+  "giftCardGiftedOn": "{date} তারিখে উপহার দেওয়া হয়েছে",
   "watchlistOffline": "অফলাইন",
   "watchlistDeleteDownload": "ডাউনলোড মুছে ফেলুন",
   "watchlistNoDownloadedContentFound": "কোনো ডাউনলোড করা বিষয়বস্তু পাওয়া যায়নি",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "কোনো বার্তা নেই",
   "newsPayload": "পেলোড",
   "routeMovieNotFound": "সিনেমা পাওয়া যায়নি",
-  "routeInvalidMovieLink": "শেয়ার করা সিনেমার লিঙ্কটি অবৈধ বা অসম্পূর্ণ।"
+  "routeInvalidMovieLink": "শেয়ার করা সিনেমার লিঙ্কটি অবৈধ বা অসম্পূর্ণ।",
+  "giftedToYou": "আপনাকে দেওয়া উপহার",
+  "giftedToYouEmptyTitle": "এখনও কোনো উপহার নেই",
+  "giftedToYouEmptyMessage": "আপনাকে উপহার দেওয়া সিনেমা ও কনটেন্ট এখানে দেখা যাবে।"
 }

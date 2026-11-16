@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "डाउनलोड हटवता आले नाही: {error}",
   "watchlistGifted": "भेट दिलेले",
   "watchlistExpired": "कालबाह्य",
+  "giftCardExpiresOn": "{date} रोजी संपेल",
+  "giftCardExpiringSoon": "लवकरच संपेल · {date}",
+  "giftCardGiftedOn": "{date} रोजी गिफ्ट केले",
   "watchlistOffline": "ऑफलाइन",
   "watchlistDeleteDownload": "डाउनलोड हटवा",
   "watchlistNoDownloadedContentFound": "डाउनलोड केलेली कोणतीही सामग्री सापडली नाही",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "संदेश नाही",
   "newsPayload": "पेलोड",
   "routeMovieNotFound": "चित्रपट सापडला नाही",
-  "routeInvalidMovieLink": "शेअर केलेली चित्रपटाची लिंक अवैध किंवा अपूर्ण आहे."
+  "routeInvalidMovieLink": "शेअर केलेली चित्रपटाची लिंक अवैध किंवा अपूर्ण आहे.",
+  "giftedToYou": "तुम्हाला मिळालेल्या भेटी",
+  "giftedToYouEmptyTitle": "अजून कोणतीही भेट नाही",
+  "giftedToYouEmptyMessage": "तुम्हाला भेट दिलेले चित्रपट आणि कंटेंट येथे दिसतील."
 }

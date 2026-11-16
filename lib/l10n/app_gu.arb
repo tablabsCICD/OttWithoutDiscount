@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ડાઉનલોડ કાઢી શકાયું નથી: {error}",
   "watchlistGifted": "ભેટમાં મળ્યું",
   "watchlistExpired": "સમાપ્ત",
+  "giftCardExpiresOn": "{date} એ સમાપ્ત થશે",
+  "giftCardExpiringSoon": "ટૂંક સમયમાં સમાપ્ત · {date}",
+  "giftCardGiftedOn": "{date} એ ભેટ આપવામાં આવી",
   "watchlistOffline": "ઑફલાઇન",
   "watchlistDeleteDownload": "ડાઉનલોડ કાઢી નાખો",
   "watchlistNoDownloadedContentFound": "કોઈ ડાઉનલોડ કરેલી સામગ્રી મળી નથી",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "કોઈ સંદેશ નથી",
   "newsPayload": "પેલોડ",
   "routeMovieNotFound": "મૂવી મળી નથી",
-  "routeInvalidMovieLink": "શેર કરેલી મૂવી લિંક અમાન્ય અથવા અધૂરી છે."
+  "routeInvalidMovieLink": "શેર કરેલી મૂવી લિંક અમાન્ય અથવા અધૂરી છે.",
+  "giftedToYou": "તમને મળેલી ભેટો",
+  "giftedToYouEmptyTitle": "હજી સુધી કોઈ ભેટ નથી",
+  "giftedToYouEmptyMessage": "તમને ભેટમાં મળેલી ફિલ્મો અને કન્ટેન્ટ અહીં દેખાશે."
 }

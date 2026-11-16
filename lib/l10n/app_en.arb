@@ -1099,6 +1099,30 @@
   },
   "watchlistGifted": "Gifted",
   "watchlistExpired": "Expired",
+  "giftCardExpiresOn": "Expires on {date}",
+  "@giftCardExpiresOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "giftCardExpiringSoon": "Expiring soon · {date}",
+  "@giftCardExpiringSoon": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "giftCardGiftedOn": "Gifted on {date}",
+  "@giftCardGiftedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "watchlistOffline": "Offline",
   "watchlistDeleteDownload": "Delete download",
   "watchlistNoDownloadedContentFound": "No downloaded content found",
@@ -1358,5 +1382,8 @@
   "newsNoMessageBody": "No message body",
   "newsPayload": "Payload",
   "routeMovieNotFound": "Movie not found",
-  "routeInvalidMovieLink": "The shared movie link is invalid or incomplete."
+  "routeInvalidMovieLink": "The shared movie link is invalid or incomplete.",
+  "giftedToYou": "Gifted To You",
+  "giftedToYouEmptyTitle": "No Gifts Yet",
+  "giftedToYouEmptyMessage": "Movies and content gifted to you will appear here."
 }

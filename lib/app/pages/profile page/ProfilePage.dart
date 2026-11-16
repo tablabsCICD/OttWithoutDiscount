@@ -307,6 +307,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                     );
                                   },
                                 ),
+                                ProfileOption(
+                                  icon: Icons.card_giftcard_rounded,
+                                  title: lang.giftedToYou,
+                                  onTap: () => _openDetail(
+                                    lang.giftedToYou,
+                                    const WatchlistPage.giftedToYou(),
+                                  ),
+                                ),
                               ],
                             ),
                             profileCard(

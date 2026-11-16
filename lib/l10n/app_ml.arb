@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ഡൗൺലോഡ് ഇല്ലാതാക്കാനായില്ല: {error}",
   "watchlistGifted": "സമ്മാനിച്ചത്",
   "watchlistExpired": "കാലഹരണപ്പെട്ടു",
+  "giftCardExpiresOn": "{date}-ന് കാലാവധി തീരും",
+  "giftCardExpiringSoon": "ഉടൻ കാലാവധി തീരും · {date}",
+  "giftCardGiftedOn": "{date}-ന് സമ്മാനിച്ചു",
   "watchlistOffline": "ഓഫ്‌ലൈൻ",
   "watchlistDeleteDownload": "ഡൗൺലോഡ് ഇല്ലാതാക്കുക",
   "watchlistNoDownloadedContentFound": "ഡൗൺലോഡ് ചെയ്ത ഉള്ളടക്കമൊന്നും കണ്ടെത്തിയില്ല",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "സന്ദേശ ഉള്ളടക്കമില്ല",
   "newsPayload": "പേലോഡ്",
   "routeMovieNotFound": "സിനിമ കണ്ടെത്തിയില്ല",
-  "routeInvalidMovieLink": "പങ്കിട്ട സിനിമ ലിങ്ക് അസാധുവോ അപൂർണ്ണമോ ആണ്."
+  "routeInvalidMovieLink": "പങ്കിട്ട സിനിമ ലിങ്ക് അസാധുവോ അപൂർണ്ണമോ ആണ്.",
+  "giftedToYou": "നിങ്ങൾക്ക് ലഭിച്ച സമ്മാനങ്ങൾ",
+  "giftedToYouEmptyTitle": "ഇതുവരെ സമ്മാനങ്ങളൊന്നുമില്ല",
+  "giftedToYouEmptyMessage": "നിങ്ങൾക്ക് സമ്മാനമായി ലഭിച്ച സിനിമകളും ഉള്ളടക്കവും ഇവിടെ കാണാം."
 }

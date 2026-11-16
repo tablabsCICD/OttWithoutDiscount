@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:ott/app/core/utils/content_type.dart';
+import 'package:ott/app/pages/movie%20details%20page/MovieDetailsPage.dart';
 import 'package:ott/app/pages/series%20details%20page/seriesdetailspage.dart';
 import 'package:ott/app/pages/watchlist%20page/component/playMoviePage.dart';
 import 'package:ott/app/provider/dashboardProvider.dart';
@@ -18,6 +20,8 @@ import 'package:ott/device/utils/ResponsiveWidget.dart';
 import 'package:ott/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:ott/app/widgets/filmytell_app_bar.dart';
+import 'package:ott/app/widgets/movieCard.dart';
+import 'package:ott/app/core/services/gifted_content_info_service.dart';
 
 enum WatchlistFilter { available, gifted, expired, downloaded }
 
@@ -25,9 +29,17 @@ class WatchlistPage extends StatefulWidget {
   const WatchlistPage({
     super.key,
     this.initialFilter = WatchlistFilter.available,
-  });
+  }) : giftedOnly = false;
+
+  /// Profile -> "Gifted To You": the Watchlist "Gifted" list on its own
+  /// screen. Same API, provider, cards and routing; only the filter chips are
+  /// hidden and it gets its own title, empty, error and retry states.
+  const WatchlistPage.giftedToYou({super.key})
+      : initialFilter = WatchlistFilter.gifted,
+        giftedOnly = true;
 
   final WatchlistFilter initialFilter;
+  final bool giftedOnly;
 
   @override
   State<WatchlistPage> createState() => _WatchlistPageState();
@@ -37,6 +49,22 @@ class _WatchlistPageState extends State<WatchlistPage> {
   bool isLoading = true;
   bool isOffline = false;
   late WatchlistFilter selectedFilter;
+  /// Gifted To You only: message of the last failed fetch (null = no error).
+  String? _giftedLoadError;
+  Future<void>? _giftedLoad;
+
+  /// Gifted To You only: a card was tapped and its screen is opening / open.
+  /// Ignores repeat taps so the player is not pushed twice.
+  bool _openingContent = false;
+
+  /// Profile sub-pages are hosted in a nested Navigator inside the
+  /// NavigationPage tab body (ProfileDetailShell). The player and details
+  /// must go on the root Navigator: inside the tab body the player's
+  /// landscape lock switches NavigationPage to its wide layout, which rebuilds
+  /// that nested Navigator and drops the player, and system back skips it.
+  /// The Watchlist tab itself already uses the root Navigator.
+  NavigatorState get _contentNavigator =>
+      Navigator.of(context, rootNavigator: widget.giftedOnly);
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   @override
@@ -48,7 +76,55 @@ class _WatchlistPageState extends State<WatchlistPage> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load() {
+    if (!widget.giftedOnly) return _loadWatchlist();
+    // Gifted To You: never run two fetches at once (connectivity change,
+    // retry and pull-to-refresh can overlap).
+    return _giftedLoad ??=
+        _loadGifted().whenComplete(() => _giftedLoad = null);
+  }
+
+  Future<void> _loadGifted() async {
+    final purchaseProvider = context.read<PurchaseContentProvider>();
+    final offlineProvider = context.read<OfflineDownloadProvider>();
+    await context.read<PlayMediaProvider>().loadLocalResumes();
+    await _updateConnectionStatus();
+    // Keeps the "Offline" badge on gifted cards that are also downloaded.
+    await offlineProvider.loadDownloadedContents();
+    String? error;
+    if (isOffline) {
+      if (!mounted) return;
+      error = AppLocalizations.of(context)!.msgNoInternetConnection;
+    } else {
+      final result = await _fetchWatchlistContent(
+        purchaseProvider,
+        WatchlistFilter.gifted,
+      );
+      if (result['success'] != true) {
+        error = result['message']?.toString();
+        if (error == null || error.trim().isEmpty) {
+          if (!mounted) return;
+          error = AppLocalizations.of(context)!.msgSomethingWentWrongTryAgain;
+        }
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _giftedLoadError = error;
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _retryGifted() async {
+    setState(() {
+      _giftedLoadError = null;
+      isLoading = true;
+    });
+    await _load();
+  }
+
+  Future<void> _loadWatchlist() async {
     final purchaseProvider =
         Provider.of<PurchaseContentProvider>(context, listen: false);
     final offlineProvider =
@@ -110,7 +186,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
     setState(() => isLoading = false);
   }
 
-  Future<void> _fetchWatchlistContent(
+  Future<Map<String, Object>> _fetchWatchlistContent(
     PurchaseContentProvider purchaseProvider,
     WatchlistFilter filter,
   ) {
@@ -127,6 +203,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
   /// directly, series and mini-series open their detail screen (they have no
   /// single video to play). Other tabs keep their existing behavior.
   void _openContent(Content item) {
+    if (widget.giftedOnly) {
+      unawaited(_openGiftedContent(item));
+      return;
+    }
     if (selectedFilter == WatchlistFilter.gifted && item.id != null) {
       final type = ContentType.normalize(item.type);
       if (type == ContentType.series ||
@@ -143,6 +223,50 @@ class _WatchlistPageState extends State<WatchlistPage> {
       }
     }
     _playContent(item);
+  }
+
+  /// Gifted To You: same routing as the Watchlist Gifted tab, opened on the
+  /// root Navigator, once per tap.
+  Future<void> _openGiftedContent(Content item) async {
+    if (_openingContent || item.id == null) return;
+    _openingContent = true;
+    try {
+      final type = ContentType.normalize(item.type);
+      if (type == ContentType.series ||
+          type == ContentType.miniSeries ||
+          type == 'MINI_SERIES') {
+        await _contentNavigator.push(
+          MaterialPageRoute(
+            builder: (_) =>
+                SeriesDetailsPage(seriesId: item.id!, content: item),
+          ),
+        );
+      } else {
+        await _playContent(item);
+      }
+    } finally {
+      _openingContent = false;
+    }
+  }
+
+  /// Gifted To You card tap: the content's details page (Movie / Short Film
+  /// -> MovieDetailsPage, Series / Mini Series -> SeriesDetailsPage), same as
+  /// the Home card, on the root Navigator so it survives the player's
+  /// landscape switch and Back returns here. Once per tap.
+  Future<void> _openGiftedDetails(Content item) async {
+    if (_openingContent || item.id == null) return;
+    _openingContent = true;
+    try {
+      await _contentNavigator.push(
+        MaterialPageRoute(
+          builder: (_) => ContentType.isMovieLike(item.type)
+              ? MovieDetailsPage(movieId: item.id!, contentType: item.type)
+              : SeriesDetailsPage(seriesId: item.id!, content: item),
+        ),
+      );
+    } finally {
+      _openingContent = false;
+    }
   }
 
   Future<void> _playContent(Content item) async {
@@ -201,8 +325,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
       return;
     }
 
-    Navigator.push(
-      context,
+    // Awaited so the Gifted To You tap guard stays set while the player is
+    // open; the Watchlist tab does not wait on it.
+    await _contentNavigator.push(
       MaterialPageRoute(
         builder: (_) => PlayMediaPage(
           content: contentToPlay,
@@ -267,6 +392,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
     final theme = Theme.of(context);
     final lang = AppLocalizations.of(context)!;
 
+    if (widget.giftedOnly) return _buildGiftedToYou(context);
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: FilmytellAppBar.main(title: lang.watchlist),
@@ -307,6 +434,190 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Profile -> Gifted To You. Reuses the gifted fetch, entry building and
+  /// cards of the Watchlist "Gifted" tab.
+  Widget _buildGiftedToYou(BuildContext context) {
+    final theme = Theme.of(context);
+    final lang = AppLocalizations.of(context)!;
+
+    Widget body;
+    if (isLoading) {
+      body = const ComingSoonShimmer(
+        showSegmentedToggle: false,
+        showActionButton: false,
+      );
+    } else if (_giftedLoadError != null) {
+      body = _giftedMessage(
+        theme,
+        icon: isOffline ? Icons.wifi_off_rounded : Icons.error_outline_rounded,
+        title: _giftedLoadError!,
+        action: OutlinedButton.icon(
+          onPressed: _retryGifted,
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(lang.retry),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: theme.primaryColor,
+            side: BorderSide(color: theme.primaryColor),
+          ),
+        ),
+      );
+    } else {
+      body = Consumer2<PurchaseContentProvider, OfflineDownloadProvider>(
+        builder: (_, purchaseProvider, offlineProvider, __) {
+          final items = _buildEntries(
+            purchaseProvider: purchaseProvider,
+            offlineProvider: offlineProvider,
+          );
+          if (items.isEmpty) {
+            return _giftedMessage(
+              theme,
+              icon: Icons.card_giftcard_rounded,
+              title: lang.giftedToYouEmptyTitle,
+              message: lang.giftedToYouEmptyMessage,
+            );
+          }
+          return _giftedGrid(items);
+        },
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: FilmytellAppBar(title: lang.giftedToYou),
+      body: RefreshIndicator(
+        color: theme.primaryColor,
+        onRefresh: _load,
+        child: body,
+      ),
+    );
+  }
+
+  /// Gifted cards use the Home page [MovieCard] in the same responsive grid
+  /// as the Home category pages (fixed card width / height, centered).
+  /// Tapping opens the content directly (player / series details).
+  Widget _giftedGrid(List<_WatchlistEntry> items) {
+    const double gap = 12;
+    const double horizontalPadding = 12;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth - horizontalPadding * 2;
+        // Columns from the standard card width, then cards widen to fill the
+        // row exactly (no empty space beside them).
+        final baseWidth = MovieCard.cardWidthFor(context);
+        final crossAxisCount =
+            math.max(1, ((availableWidth + gap) / (baseWidth + gap)).floor());
+        final cardWidth =
+            (availableWidth - (crossAxisCount - 1) * gap) / crossAxisCount;
+        // Same title/details area as the standard card; the 16:9 poster grows
+        // with the width.
+        final detailsHeight = MovieCard.standardHeight -
+            baseWidth / MovieCard.standardPosterAspectRatio;
+        final cardHeight =
+            cardWidth / MovieCard.standardPosterAspectRatio + detailsHeight;
+
+        return GridView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+              horizontalPadding, 12, horizontalPadding, 24),
+          itemCount: items.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: gap,
+            crossAxisSpacing: gap,
+            mainAxisExtent: cardHeight,
+          ),
+          itemBuilder: (_, i) {
+            final entry = items[i];
+            return Center(
+              child: MovieCard(
+                key: ValueKey('giftedCard-${entry.movie.id}'),
+                movie: entry.movie,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                cardMargin: 0,
+                isGifted: true,
+                giftInfo: entry.giftInfo,
+                // Card tap -> details page; Watch Now -> player.
+                onOpen: () => unawaited(_openGiftedDetails(entry.movie)),
+                onWatchNow: () => _onGiftedWatchNow(entry),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _onGiftedWatchNow(_WatchlistEntry entry) {
+    if (!entry.active) {
+      CustomToast.show(
+        context,
+        AppLocalizations.of(context)!.watchlistExpired,
+        isSuccess: false,
+      );
+      return;
+    }
+    _openContent(entry.movie);
+  }
+
+  /// Scrollable (so pull-to-refresh works) centered empty / error message.
+  Widget _giftedMessage(
+    ThemeData theme, {
+    required IconData icon,
+    required String title,
+    String? message,
+    Widget? action,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon,
+                      size: 72,
+                      color: theme.canvasColor.withValues(alpha: 0.6)),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: theme.canvasColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (message != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: theme.canvasColor.withValues(alpha: 0.7),
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (action != null) ...[
+                    const SizedBox(height: 20),
+                    action,
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -417,6 +728,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
         isActive: userContent.active ?? false,
         isGifted: userContent.isGifted ?? false,
         isDownloaded: offlineProvider.isDownloaded(movieId),
+        giftInfo: userContent.isGifted == true
+            ? GiftedContentInfo.fromUserContent(userContent)
+            : null,
       );
     }
 
@@ -440,6 +754,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
           isActive: true,
           isGifted: entriesById[movieId]?.isGifted ?? false,
           isDownloaded: true,
+          giftInfo: entriesById[movieId]?.giftInfo,
         );
       }
     }
@@ -719,12 +1034,16 @@ class _WatchlistEntry {
     required this.isActive,
     required this.isGifted,
     required this.isDownloaded,
+    this.giftInfo,
   });
 
   final Content movie;
   final bool isActive;
   final bool isGifted;
   final bool isDownloaded;
+
+  /// Gift dates / status (gifted items only), shown on Gifted To You cards.
+  final GiftedContentInfo? giftInfo;
 
   bool get active => isActive;
 }

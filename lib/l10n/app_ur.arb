@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ڈاؤن لوڈ حذف نہیں ہو سکا: {error}",
   "watchlistGifted": "تحفے میں ملا",
   "watchlistExpired": "میعاد ختم",
+  "giftCardExpiresOn": "{date} کو میعاد ختم",
+  "giftCardExpiringSoon": "جلد میعاد ختم · {date}",
+  "giftCardGiftedOn": "{date} کو تحفہ دیا گیا",
   "watchlistOffline": "آف لائن",
   "watchlistDeleteDownload": "ڈاؤن لوڈ حذف کریں",
   "watchlistNoDownloadedContentFound": "کوئی ڈاؤن لوڈ شدہ مواد نہیں ملا",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "کوئی پیغام نہیں",
   "newsPayload": "پے لوڈ",
   "routeMovieNotFound": "فلم نہیں ملی",
-  "routeInvalidMovieLink": "شیئر کیا گیا فلم لنک غلط یا نامکمل ہے۔"
+  "routeInvalidMovieLink": "شیئر کیا گیا فلم لنک غلط یا نامکمل ہے۔",
+  "giftedToYou": "آپ کو ملے تحفے",
+  "giftedToYouEmptyTitle": "ابھی تک کوئی تحفہ نہیں",
+  "giftedToYouEmptyMessage": "آپ کو تحفے میں دی گئی فلمیں اور مواد یہاں نظر آئیں گے۔"
 }

@@ -2240,6 +2240,21 @@ class AppLocalizationsGu extends AppLocalizations {
   String get watchlistExpired => 'સમાપ્ત';
 
   @override
+  String giftCardExpiresOn(String date) {
+    return '$date એ સમાપ્ત થશે';
+  }
+
+  @override
+  String giftCardExpiringSoon(String date) {
+    return 'ટૂંક સમયમાં સમાપ્ત · $date';
+  }
+
+  @override
+  String giftCardGiftedOn(String date) {
+    return '$date એ ભેટ આપવામાં આવી';
+  }
+
+  @override
   String get watchlistOffline => 'ઑફલાઇન';
 
   @override
@@ -2893,4 +2908,14 @@ class AppLocalizationsGu extends AppLocalizations {
   @override
   String get routeInvalidMovieLink =>
       'શેર કરેલી મૂવી લિંક અમાન્ય અથવા અધૂરી છે.';
+
+  @override
+  String get giftedToYou => 'તમને મળેલી ભેટો';
+
+  @override
+  String get giftedToYouEmptyTitle => 'હજી સુધી કોઈ ભેટ નથી';
+
+  @override
+  String get giftedToYouEmptyMessage =>
+      'તમને ભેટમાં મળેલી ફિલ્મો અને કન્ટેન્ટ અહીં દેખાશે.';
 }

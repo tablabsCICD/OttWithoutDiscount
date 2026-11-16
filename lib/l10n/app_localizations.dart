@@ -4143,6 +4143,24 @@ abstract class AppLocalizations {
   /// **'Expired'**
   String get watchlistExpired;
 
+  /// No description provided for @giftCardExpiresOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires on {date}'**
+  String giftCardExpiresOn(String date);
+
+  /// No description provided for @giftCardExpiringSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Expiring soon · {date}'**
+  String giftCardExpiringSoon(String date);
+
+  /// No description provided for @giftCardGiftedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Gifted on {date}'**
+  String giftCardGiftedOn(String date);
+
   /// No description provided for @watchlistOffline.
   ///
   /// In en, this message translates to:
@@ -5253,6 +5271,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The shared movie link is invalid or incomplete.'**
   String get routeInvalidMovieLink;
+
+  /// No description provided for @giftedToYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Gifted To You'**
+  String get giftedToYou;
+
+  /// No description provided for @giftedToYouEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Gifts Yet'**
+  String get giftedToYouEmptyTitle;
+
+  /// No description provided for @giftedToYouEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies and content gifted to you will appear here.'**
+  String get giftedToYouEmptyMessage;
 }
 
 class _AppLocalizationsDelegate

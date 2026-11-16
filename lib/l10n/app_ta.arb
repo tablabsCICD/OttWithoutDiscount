@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "பதிவிறக்கத்தை நீக்க முடியவில்லை: {error}",
   "watchlistGifted": "பரிசளிக்கப்பட்டது",
   "watchlistExpired": "காலாவதியானது",
+  "giftCardExpiresOn": "{date} அன்று காலாவதியாகும்",
+  "giftCardExpiringSoon": "விரைவில் காலாவதி · {date}",
+  "giftCardGiftedOn": "{date} அன்று பரிசளிக்கப்பட்டது",
   "watchlistOffline": "ஆஃப்லைன்",
   "watchlistDeleteDownload": "பதிவிறக்கத்தை நீக்கு",
   "watchlistNoDownloadedContentFound": "பதிவிறக்கிய உள்ளடக்கம் எதுவும் இல்லை",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "செய்தி உள்ளடக்கம் இல்லை",
   "newsPayload": "பேலோட்",
   "routeMovieNotFound": "திரைப்படம் கிடைக்கவில்லை",
-  "routeInvalidMovieLink": "பகிரப்பட்ட திரைப்பட இணைப்பு தவறானது அல்லது முழுமையற்றது."
+  "routeInvalidMovieLink": "பகிரப்பட்ட திரைப்பட இணைப்பு தவறானது அல்லது முழுமையற்றது.",
+  "giftedToYou": "உங்களுக்கு வந்த பரிசுகள்",
+  "giftedToYouEmptyTitle": "இன்னும் பரிசுகள் இல்லை",
+  "giftedToYouEmptyMessage": "உங்களுக்குப் பரிசளிக்கப்பட்ட திரைப்படங்களும் உள்ளடக்கமும் இங்கே தோன்றும்."
 }

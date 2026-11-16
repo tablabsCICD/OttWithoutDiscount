@@ -2283,6 +2283,21 @@ class AppLocalizationsTa extends AppLocalizations {
   String get watchlistExpired => 'காலாவதியானது';
 
   @override
+  String giftCardExpiresOn(String date) {
+    return '$date அன்று காலாவதியாகும்';
+  }
+
+  @override
+  String giftCardExpiringSoon(String date) {
+    return 'விரைவில் காலாவதி · $date';
+  }
+
+  @override
+  String giftCardGiftedOn(String date) {
+    return '$date அன்று பரிசளிக்கப்பட்டது';
+  }
+
+  @override
   String get watchlistOffline => 'ஆஃப்லைன்';
 
   @override
@@ -2951,4 +2966,14 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get routeInvalidMovieLink =>
       'பகிரப்பட்ட திரைப்பட இணைப்பு தவறானது அல்லது முழுமையற்றது.';
+
+  @override
+  String get giftedToYou => 'உங்களுக்கு வந்த பரிசுகள்';
+
+  @override
+  String get giftedToYouEmptyTitle => 'இன்னும் பரிசுகள் இல்லை';
+
+  @override
+  String get giftedToYouEmptyMessage =>
+      'உங்களுக்குப் பரிசளிக்கப்பட்ட திரைப்படங்களும் உள்ளடக்கமும் இங்கே தோன்றும்.';
 }

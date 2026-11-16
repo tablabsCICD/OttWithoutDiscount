@@ -670,6 +670,9 @@
   "watchlistCouldNotDeleteDownload": "ਡਾਊਨਲੋਡ ਮਿਟਾਇਆ ਨਹੀਂ ਜਾ ਸਕਿਆ: {error}",
   "watchlistGifted": "ਤੋਹਫ਼ੇ ਵਿੱਚ ਮਿਲਿਆ",
   "watchlistExpired": "ਮਿਆਦ ਖਤਮ",
+  "giftCardExpiresOn": "{date} ਨੂੰ ਮਿਆਦ ਖਤਮ",
+  "giftCardExpiringSoon": "ਜਲਦੀ ਮਿਆਦ ਖਤਮ · {date}",
+  "giftCardGiftedOn": "{date} ਨੂੰ ਤੋਹਫ਼ਾ ਦਿੱਤਾ ਗਿਆ",
   "watchlistOffline": "ਆਫਲਾਈਨ",
   "watchlistDeleteDownload": "ਡਾਊਨਲੋਡ ਮਿਟਾਓ",
   "watchlistNoDownloadedContentFound": "ਕੋਈ ਡਾਊਨਲੋਡ ਕੀਤੀ ਸਮੱਗਰੀ ਨਹੀਂ ਮਿਲੀ",
@@ -854,5 +857,8 @@
   "newsNoMessageBody": "ਕੋਈ ਸੁਨੇਹਾ ਨਹੀਂ",
   "newsPayload": "ਪੇਲੋਡ",
   "routeMovieNotFound": "ਫਿਲਮ ਨਹੀਂ ਮਿਲੀ",
-  "routeInvalidMovieLink": "ਸਾਂਝਾ ਕੀਤਾ ਫਿਲਮ ਲਿੰਕ ਅਵੈਧ ਜਾਂ ਅਧੂਰਾ ਹੈ।"
+  "routeInvalidMovieLink": "ਸਾਂਝਾ ਕੀਤਾ ਫਿਲਮ ਲਿੰਕ ਅਵੈਧ ਜਾਂ ਅਧੂਰਾ ਹੈ।",
+  "giftedToYou": "ਤੁਹਾਨੂੰ ਮਿਲੇ ਤੋਹਫ਼ੇ",
+  "giftedToYouEmptyTitle": "ਅਜੇ ਤੱਕ ਕੋਈ ਤੋਹਫ਼ਾ ਨਹੀਂ",
+  "giftedToYouEmptyMessage": "ਤੁਹਾਨੂੰ ਤੋਹਫ਼ੇ ਵਿੱਚ ਮਿਲੀਆਂ ਫ਼ਿਲਮਾਂ ਅਤੇ ਸਮੱਗਰੀ ਇੱਥੇ ਦਿਖਾਈ ਦੇਣਗੀਆਂ।"
 }
